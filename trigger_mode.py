@@ -15,7 +15,7 @@ SET_TO_DEFAULT_CU135 = 0x12
 
 # Values
 
-STREAM_TRIGGER = 0x00 # inferred from qtCam
+STREAM_TRIGGER = 0x01 # inferred from qtCam
 
 # Response
 SET_SUCCESS = 0x01   # inferred from qtCam
@@ -61,9 +61,31 @@ def set_effect_sketch():
     return send_cmd(SET_STREAM_MODE_CU135, STREAM_TRIGGER)
 
 
+def set_default_mode():
+    return send_cmd(SET_TO_DEFAULT_CU135, 0x00)
+
+
 # ===== CLI =====
 def main():
-    set_effect_sketch()
+    if len(sys.argv) != 2:
+        print("Usage: {} <mode>\n  mode: 0 = default values, 1 = stream trigger mode".format(sys.argv[0]))
+        sys.exit(1)
+
+    try:
+        mode = int(sys.argv[1])
+    except ValueError:
+        print("Invalid mode: must be 0 or 1")
+        sys.exit(1)
+
+    if mode == 0:
+        print("Setting camera to default values")
+        set_default_mode()
+    elif mode == 1:
+        print("Setting camera to stream trigger mode")
+        set_effect_sketch()
+    else:
+        print("Invalid mode: must be 0 or 1")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
