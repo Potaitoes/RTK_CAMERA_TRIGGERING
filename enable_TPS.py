@@ -2,21 +2,25 @@ import struct
 
 # UBX-CFG-TP5 message
 # Class: 0x06, ID: 0x31
+# Configure TIMEPULSE as a phase-locked 10 Hz signal with 10 ms high time.
+
+FREQ_PERIOD_US = 100000   # 10 Hz => 100 ms period
+PULSE_LEN_US = 10000      # 10 ms high time
 
 # Payload (32 bytes)
 payload = struct.pack(
     '<BBHhhIIIIiI',
-    0,          # tpIdx
-    1,          # version
+    0,               # tpIdx
+    1,               # version
     0,
     50,
     0,
-    1000000,
-    1000000,
-    100000,
-    100000,
+    FREQ_PERIOD_US,  # freqPeriod
+    FREQ_PERIOD_US,  # freqPeriodLock
+    PULSE_LEN_US,    # pulseLenRatio
+    PULSE_LEN_US,    # pulseLenRatioLock
     0,
-    0x17        # <-- FIXED FLAGS
+    0x17             # active, locked to GNSS time, use period/length in us
 )
 
 
