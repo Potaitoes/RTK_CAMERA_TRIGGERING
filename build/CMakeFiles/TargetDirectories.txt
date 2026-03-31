@@ -1,0 +1,3 @@
+/home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles/capture_session.dir
+/home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles/edit_cache.dir
+/home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles/rebuild_cache.dir

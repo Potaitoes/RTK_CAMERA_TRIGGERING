@@ -8,7 +8,7 @@
 #define GNSS_BAUD 115200
 
 // Spoofed NMEA UART out
-#define NMEA_TX_PIN 17
+#define NMEA_TX_PIN 17 // Use 200 ohms resistor on this pin.
 #define NMEA_BAUD 9600
 
 #define INTERVAL_US 100000UL   // 100 ms => 10 Hz

@@ -1,0 +1,1 @@
+/usr/bin/c++  -O3 -Wall CMakeFiles/capture_session.dir/src/main.cpp.o CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o -o capture_session  /usr/lib/x86_64-linux-gnu/libopencv_videoio.so.4.6.0 -lserialport /usr/lib/x86_64-linux-gnu/libopencv_imgcodecs.so.4.6.0 /usr/lib/x86_64-linux-gnu/libopencv_imgproc.so.4.6.0 /usr/lib/x86_64-linux-gnu/libopencv_core.so.4.6.0 
