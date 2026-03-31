@@ -1,0 +1,16 @@
+# Build
+build/
+
+# Recordings
+recordings/
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
