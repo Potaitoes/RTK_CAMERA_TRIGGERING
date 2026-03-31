@@ -21,7 +21,6 @@
 #include "ubx_parser.h"
 
 // ===== CONFIG =====
-constexpr int QUEUE_DEPTH = 1;
 constexpr int JPEG_QUALITY = 85;
 constexpr const char* VIDEO_DEV = "/dev/video0";
 constexpr const char* RTK_PORT = "/dev/ttyACM0";
@@ -32,16 +31,12 @@ constexpr const char* OUTPUT_DIR = "./recordings";
 std::atomic<bool> stop_flag(false);
 std::atomic<bool> stream_ready(false);
 
-struct FrameData {
-    cv::Mat frame;
-    int index;
-};
-
-std::queue<FrameData> frame_queue;
-std::mutex frame_queue_mtx;
-
+// Latest frame + condition variable for signaling new arrivals
 cv::Mat latest_frame;
-std::mutex latest_frame_mtx;
+std::chrono::system_clock::time_point latest_frame_time;
+uint64_t frame_seq = 0;  // increments on every new frame
+std::mutex frame_mtx;
+std::condition_variable frame_cv;
 
 std::queue<std::pair<std::string, cv::Mat>> save_queue;
 std::mutex save_queue_mtx;
@@ -53,32 +48,30 @@ int tm2_count = 0;
 void signal_handler(int sig) {
     std::cout << "\n[Main] Stopping..." << std::endl;
     stop_flag = true;
+    frame_cv.notify_all();
 }
 
 // ===== CAMERA THREAD =====
 void camera_thread(const std::string& video_dev) {
-    int dev_index = 0;
-    try {
-        size_t pos = video_dev.find_last_not_of("0123456789");
-        dev_index = std::stoi(video_dev.substr(pos + 1));
-    } catch (...) {
-        dev_index = 0;
-    }
-
     cv::VideoCapture cap(video_dev, cv::CAP_V4L2);
     if (!cap.isOpened()) {
+        int dev_index = 0;
+        try {
+            size_t pos = video_dev.find_last_not_of("0123456789");
+            dev_index = std::stoi(video_dev.substr(pos + 1));
+        } catch (...) {}
         cap.open(dev_index, cv::CAP_V4L2);
     }
     if (!cap.isOpened()) {
         std::cerr << "[Camera] Could not open " << video_dev << std::endl;
         stop_flag = true;
+        frame_cv.notify_all();
         return;
     }
 
     std::cout << "[Camera] Opened " << video_dev << std::endl;
 
     cv::Mat frame;
-    int frame_count = 0;
     uint32_t read_fail_count = 0;
 
     while (!stop_flag) {
@@ -93,18 +86,15 @@ void camera_thread(const std::string& video_dev) {
         read_fail_count = 0;
         stream_ready = true;
 
-        {
-            std::lock_guard<std::mutex> lock(latest_frame_mtx);
-            latest_frame = frame.clone();
-        }
+        auto recv_time = std::chrono::system_clock::now();
 
         {
-            std::lock_guard<std::mutex> lock(frame_queue_mtx);
-            if (frame_queue.size() >= QUEUE_DEPTH) {
-                frame_queue.pop();
-            }
-            frame_queue.push({frame.clone(), frame_count++});
+            std::lock_guard<std::mutex> lock(frame_mtx);
+            latest_frame = frame.clone();
+            latest_frame_time = recv_time;
+            frame_seq++;
         }
+        frame_cv.notify_one();
     }
 
     cap.release();
@@ -173,7 +163,7 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
 
     // Open CSV
     std::ofstream csv_file(csv_path);
-    csv_file << "filename,unix_time,ch,flags,newRisingEdge,newFallingEdge,count,wnR,wnF,towMsR,towSubMsR,towMsF,towSubMsF,accEst\n";
+    csv_file << "filename,unix_time,nuc_frame_recv_us,frame_seq,ch,flags,newRisingEdge,newFallingEdge,count,wnR,wnF,towMsR,towSubMsR,towMsF,towSubMsF,accEst\n";
     csv_file.flush();
 
     std::cout << "[RTK] Logging TIM-TM2 → " << csv_path << std::endl;
@@ -184,43 +174,47 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
 
     while (!stop_flag) {
         int bytes_read = sp_blocking_read(port, &byte, 1, 100);
-        if (bytes_read <= 0) {
-            continue;
-        }
+        if (bytes_read <= 0) continue;
 
         if (parser.feed_byte(byte)) {
-            // Valid TIM-TM2 message received
             if (parser.parse_message(parser.payload, tm2)) {
-                if (!tm2.newRisingEdge) {
-                    continue;
-                }
+                if (!tm2.newRisingEdge) continue;
 
-                // Get frame from queue
-                cv::Mat frame;
+                // Skip TM2 events that arrive before camera is producing frames
+                if (!stream_ready) continue;
+
+                // Snapshot frame_seq at TM2 arrival
+                uint64_t seq_at_tm2;
                 {
-                    std::lock_guard<std::mutex> lock(frame_queue_mtx);
-                    if (!frame_queue.empty()) {
-                        frame = frame_queue.front().frame;
-                        frame_queue.pop();
-                    }
+                    std::lock_guard<std::mutex> lock(frame_mtx);
+                    seq_at_tm2 = frame_seq;
                 }
 
-                // Fallback to latest captured frame if queue is empty
-                if (frame.empty()) {
-                    std::lock_guard<std::mutex> lock(latest_frame_mtx);
-                    if (!latest_frame.empty()) {
-                        frame = latest_frame.clone();
-                    }
-                }
+                // Wait for a NEW frame (one that arrived after this TM2)
+                cv::Mat frame;
+                std::chrono::system_clock::time_point frame_recv_time;
+                uint64_t paired_seq;
+                {
+                    std::unique_lock<std::mutex> lock(frame_mtx);
+                    bool got = frame_cv.wait_for(lock, std::chrono::milliseconds(200), [&] {
+                        return stop_flag.load() || frame_seq > seq_at_tm2;
+                    });
 
-                if (frame.empty()) {
-                    std::cout << "[RTK] WARNING: TIM-TM2 received but no frame in queue" << std::endl;
-                    continue;
+                    if (stop_flag) break;
+
+                    if (!got || latest_frame.empty()) {
+                        std::cerr << "[RTK] WARNING: TM2 rising edge but no new frame within 200ms" << std::endl;
+                        continue;
+                    }
+
+                    frame = latest_frame.clone();
+                    frame_recv_time = latest_frame_time;
+                    paired_seq = frame_seq;
                 }
 
                 // Queue frame for saving
-                std::string filename = frames_dir + "/frame_" + 
-                    std::string(6 - std::to_string(tm2_count).length(), '0') + 
+                std::string filename = frames_dir + "/frame_" +
+                    std::string(6 - std::to_string(tm2_count).length(), '0') +
                     std::to_string(tm2_count) + ".jpg";
 
                 {
@@ -232,9 +226,13 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
                 // Log to CSV
                 auto now = std::chrono::system_clock::now();
                 auto time_t_now = std::chrono::system_clock::to_time_t(now);
+                auto frame_recv_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                    frame_recv_time.time_since_epoch()).count();
 
                 csv_file << "frame_" << std::setfill('0') << std::setw(6) << tm2_count << ".jpg,"
                          << time_t_now << ","
+                         << frame_recv_us << ","
+                         << paired_seq << ","
                          << static_cast<int>(tm2.ch) << ","
                          << static_cast<int>(tm2.flags) << ","
                          << (tm2.newRisingEdge ? 1 : 0) << ","
@@ -251,7 +249,7 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
 
                 tm2_count++;
                 std::cout << "[RTK] Saved frame_" << std::setfill('0') << std::setw(6) << (tm2_count - 1)
-                          << ".jpg  count=" << tm2.count << "  queue_depth=" << frame_queue.size() << std::endl;
+                          << ".jpg  count=" << tm2.count << "  seq=" << paired_seq << std::endl;
             }
         }
     }
@@ -320,6 +318,8 @@ int main(int argc, char* argv[]) {
     while (!stop_flag) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+
+    frame_cv.notify_all();
 
     // Join threads
     cam_t.join();
