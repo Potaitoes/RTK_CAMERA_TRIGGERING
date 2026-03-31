@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import os
 import sys
+import subprocess
+import time
 
 # ===== CONFIG =====
 HID_PATH = "/dev/hidraw0"   #HID address of the camera.
 BUFFER_LENGTH = 65
+VIDEO_DEV = "/dev/video0"
+EXPOSURE_TIME = 200  # in 100µs units (200 = 20ms)
 
 # ===== PROTOCOL =====
 CAMERA_CONTROL = 0x81
@@ -61,6 +65,26 @@ def set_effect_sketch():
     return send_cmd(SET_STREAM_MODE_CU135, STREAM_TRIGGER)
 
 
+def set_exposure(dev=VIDEO_DEV, exposure=EXPOSURE_TIME):
+    """Set manual exposure via v4l2-ctl."""
+    try:
+        subprocess.run(
+            ["v4l2-ctl", "-d", dev, "--set-ctrl=auto_exposure=1"],
+            check=True
+        )
+        print(f"✅ auto_exposure set to manual (1)")
+        time.sleep(1)
+        subprocess.run(
+            ["v4l2-ctl", "-d", dev, f"--set-ctrl=exposure_time_absolute={exposure}"],
+            check=True
+        )
+        print(f"✅ exposure_time_absolute set to {exposure}")
+    except FileNotFoundError:
+        print("❌ v4l2-ctl not found — install v4l-utils")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ v4l2-ctl failed: {e}")
+
+
 def set_default_mode():
     return send_cmd(SET_TO_DEFAULT_CU135, 0x00)
 
@@ -83,6 +107,8 @@ def main():
     elif mode == 1:
         print("Setting camera to stream trigger mode")
         set_effect_sketch()
+        print("Setting manual exposure...")
+        set_exposure()
     else:
         print("Invalid mode: must be 0 or 1")
         sys.exit(1)
