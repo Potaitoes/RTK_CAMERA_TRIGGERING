@@ -5,10 +5,10 @@ import subprocess
 import time
 
 # ===== CONFIG =====
-HID_PATH = "/dev/hidraw0"   #HID address of the camera.
+HID_PATH = "/dev/hidraw_econ"   #HID address of the camera (stable udev symlink).
 BUFFER_LENGTH = 65
 VIDEO_DEV = "/dev/video0"
-EXPOSURE_TIME = 200  # in 100µs units (200 = 20ms)
+EXPOSURE_TIME = 200  # in 100µs units (100 = 10ms)
 
 # ===== PROTOCOL =====
 CAMERA_CONTROL = 0x81
