@@ -7,12 +7,12 @@ SESSION_DIR="${BASE_DIR}/${SESSION_NAME}"
 mkdir -p "${SESSION_DIR}"
 echo "[run_everything] Session folder: ${SESSION_DIR}"
 
-# Stop PTP service
-sudo systemctl stop enable_ptp.sh
-sudo systemctl daemon-reload
-echo "[run_everything] PTP service stopped"
+# # Stop PTP service
+# sudo systemctl stop enable_ptp.service
+# sudo systemctl daemon-reload
+# echo "[run_everything] PTP service stopped"
 
-sleep 2  # Give it a moment to ensure PTP is fully stopped
+#sleep 2  # Give it a moment to ensure PTP is fully stopped
 
 # Clean up background processes on exit
 cleanup() {
