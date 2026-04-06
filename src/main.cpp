@@ -1,6 +1,7 @@
 #include <iostream>
 #include <thread>
 #include <queue>
+#include <deque>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
@@ -10,6 +11,7 @@
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
+#include <algorithm>
 #include <signal.h>
 
 #include <opencv2/core.hpp>
@@ -26,15 +28,24 @@ constexpr const char* VIDEO_DEV = "/dev/video0";
 constexpr const char* RTK_PORT = "/dev/ttyACM0";
 constexpr int RTK_BAUD = 115200;
 constexpr const char* OUTPUT_DIR = "./recordings";
+constexpr auto FRAME_MATCH_TIMEOUT = std::chrono::milliseconds(120);
+constexpr auto MAX_FRAME_DELAY_AFTER_TM2 = std::chrono::milliseconds(50);
+constexpr size_t MAX_FRAME_BUFFER_SIZE = 16;
+
+struct BufferedFrame {
+    cv::Mat image;
+    std::chrono::system_clock::time_point recv_time;
+    uint64_t seq = 0;
+};
 
 // ===== GLOBALS =====
 std::atomic<bool> stop_flag(false);
 std::atomic<bool> stream_ready(false);
 
-// Latest frame + condition variable for signaling new arrivals
-cv::Mat latest_frame;
-std::chrono::system_clock::time_point latest_frame_time;
+// Buffered frames + condition variable for signaling new arrivals
+std::deque<BufferedFrame> frame_buffer;
 uint64_t frame_seq = 0;  // increments on every new frame
+uint64_t last_paired_seq = 0;
 std::mutex frame_mtx;
 std::condition_variable frame_cv;
 
@@ -97,9 +108,11 @@ void camera_thread(const std::string& video_dev) {
 
         {
             std::lock_guard<std::mutex> lock(frame_mtx);
-            latest_frame = frame.clone();
-            latest_frame_time = recv_time;
             frame_seq++;
+            frame_buffer.push_back({frame.clone(), recv_time, frame_seq});
+            if (frame_buffer.size() > MAX_FRAME_BUFFER_SIZE) {
+                frame_buffer.pop_front();
+            }
         }
         frame_cv.notify_one();
     }
@@ -125,6 +138,12 @@ void saver_thread() {
         cv::imwrite(filename, frame, params);
     }
     std::cout << "[Saver] Stopped." << std::endl;
+}
+
+std::string make_frame_basename(int index) {
+    std::ostringstream oss;
+    oss << "frame_" << std::setfill('0') << std::setw(6) << index << ".jpg";
+    return oss.str();
 }
 
 // ===== RTK LOGGER THREAD =====
@@ -170,7 +189,7 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
 
     // Open CSV
     std::ofstream csv_file(csv_path);
-    csv_file << "filename,unix_time,nuc_frame_recv_us,frame_seq,ch,flags,newRisingEdge,newFallingEdge,count,wnR,wnF,towMsR,towSubMsR,towMsF,towSubMsF,accEst\n";
+    csv_file << "status,filename,unix_time,tm2_arrival_us,nuc_frame_recv_us,frame_delay_us,frame_seq,ch,flags,newRisingEdge,newFallingEdge,count,wnR,wnF,towMsR,towSubMsR,towMsF,towSubMsF,accEst\n";
     csv_file.flush();
 
     std::cout << "[RTK] Logging TIM-TM2 → " << csv_path << std::endl;
@@ -178,6 +197,51 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
     UBXParser parser;
     uint8_t byte;
     TIM_TM2 tm2;
+
+    auto log_tm2_row = [&](const std::string& status,
+                           const std::string& filename,
+                           const TIM_TM2& event,
+                           int64_t tm2_arrival_us,
+                           int64_t frame_recv_us,
+                           int64_t frame_delay_us,
+                           uint64_t paired_frame_seq) {
+        auto now = std::chrono::system_clock::now();
+        auto time_t_now = std::chrono::system_clock::to_time_t(now);
+
+        csv_file << status << ","
+                 << filename << ","
+                 << time_t_now << ","
+                 << tm2_arrival_us << ",";
+
+        if (frame_recv_us >= 0) {
+            csv_file << frame_recv_us;
+        }
+        csv_file << ",";
+
+        if (frame_delay_us >= 0) {
+            csv_file << frame_delay_us;
+        }
+        csv_file << ",";
+
+        if (paired_frame_seq > 0) {
+            csv_file << paired_frame_seq;
+        }
+
+        csv_file << ","
+                 << static_cast<int>(event.ch) << ","
+                 << static_cast<int>(event.flags) << ","
+                 << (event.newRisingEdge ? 1 : 0) << ","
+                 << (event.newFallingEdge ? 1 : 0) << ","
+                 << event.count << ","
+                 << event.wnR << ","
+                 << event.wnF << ","
+                 << event.towMsR << ","
+                 << event.towSubMsR << ","
+                 << event.towMsF << ","
+                 << event.towSubMsF << ","
+                 << event.accEst << "\n";
+        csv_file.flush();
+    };
 
     while (!stop_flag) {
         int bytes_read = sp_blocking_read(port, &byte, 1, 100);
@@ -190,6 +254,10 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
                 // Skip TM2 events that arrive before camera is producing frames
                 if (!stream_ready) continue;
 
+                auto tm2_arrival_time = std::chrono::system_clock::now();
+                auto tm2_arrival_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                    tm2_arrival_time.time_since_epoch()).count();
+
                 // Snapshot frame_seq at TM2 arrival
                 uint64_t seq_at_tm2;
                 {
@@ -197,32 +265,66 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
                     seq_at_tm2 = frame_seq;
                 }
 
-                // Wait for a NEW frame (one that arrived after this TM2)
+                uint64_t min_required_seq = std::max(last_paired_seq, seq_at_tm2);
+
+                // Wait for the first eligible frame that arrives after this TM2.
                 cv::Mat frame;
                 std::chrono::system_clock::time_point frame_recv_time;
                 uint64_t paired_seq;
+                bool matched = false;
+                bool late_frame_rejected = false;
                 {
                     std::unique_lock<std::mutex> lock(frame_mtx);
-                    bool got = frame_cv.wait_for(lock, std::chrono::milliseconds(200), [&] {
-                        return stop_flag.load() || frame_seq > seq_at_tm2;
-                    });
+                    auto deadline = std::chrono::steady_clock::now() + FRAME_MATCH_TIMEOUT;
 
-                    if (stop_flag) break;
+                    while (!stop_flag) {
+                        auto candidate = std::find_if(frame_buffer.begin(), frame_buffer.end(), [&](const BufferedFrame& buffered_frame) {
+                            return buffered_frame.seq > min_required_seq;
+                        });
 
-                    if (!got || latest_frame.empty()) {
-                        std::cerr << "[RTK] WARNING: TM2 rising edge but no new frame within 200ms" << std::endl;
-                        continue;
+                        if (candidate != frame_buffer.end()) {
+                            if (candidate->recv_time <= tm2_arrival_time) {
+                                min_required_seq = candidate->seq;
+                                continue;
+                            }
+
+                            auto frame_delay = candidate->recv_time - tm2_arrival_time;
+                            if (frame_delay > MAX_FRAME_DELAY_AFTER_TM2) {
+                                late_frame_rejected = true;
+                                break;
+                            }
+
+                            frame = candidate->image.clone();
+                            frame_recv_time = candidate->recv_time;
+                            paired_seq = candidate->seq;
+                            last_paired_seq = paired_seq;
+                            matched = true;
+                            break;
+                        }
+
+                        if (frame_cv.wait_until(lock, deadline) == std::cv_status::timeout) {
+                            break;
+                        }
                     }
-
-                    frame = latest_frame.clone();
-                    frame_recv_time = latest_frame_time;
-                    paired_seq = frame_seq;
                 }
 
+                if (stop_flag) break;
+
+                if (!matched) {
+                    const std::string status = late_frame_rejected ? "missed_late_frame" : "missed_timeout";
+                    std::cerr << "[RTK] WARNING: TM2 rising edge missed; reason=" << status << std::endl;
+                    log_tm2_row(status, "", tm2, tm2_arrival_us, -1, -1, 0);
+                    continue;
+                }
+
+                auto frame_recv_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                    frame_recv_time.time_since_epoch()).count();
+                auto frame_delay_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                    frame_recv_time - tm2_arrival_time).count();
+                std::string frame_basename = make_frame_basename(tm2_count);
+
                 // Queue frame for saving
-                std::string filename = frames_dir + "/frame_" +
-                    std::string(6 - std::to_string(tm2_count).length(), '0') +
-                    std::to_string(tm2_count) + ".jpg";
+                std::string filename = frames_dir + "/" + frame_basename;
 
                 {
                     std::lock_guard<std::mutex> lock(save_queue_mtx);
@@ -230,33 +332,18 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& frames_di
                     save_queue_cv.notify_one();
                 }
 
-                // Log to CSV
-                auto now = std::chrono::system_clock::now();
-                auto time_t_now = std::chrono::system_clock::to_time_t(now);
-                auto frame_recv_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                    frame_recv_time.time_since_epoch()).count();
-
-                csv_file << "frame_" << std::setfill('0') << std::setw(6) << tm2_count << ".jpg,"
-                         << time_t_now << ","
-                         << frame_recv_us << ","
-                         << paired_seq << ","
-                         << static_cast<int>(tm2.ch) << ","
-                         << static_cast<int>(tm2.flags) << ","
-                         << (tm2.newRisingEdge ? 1 : 0) << ","
-                         << (tm2.newFallingEdge ? 1 : 0) << ","
-                         << tm2.count << ","
-                         << tm2.wnR << ","
-                         << tm2.wnF << ","
-                         << tm2.towMsR << ","
-                         << tm2.towSubMsR << ","
-                         << tm2.towMsF << ","
-                         << tm2.towSubMsF << ","
-                         << tm2.accEst << "\n";
-                csv_file.flush();
+                log_tm2_row("saved",
+                            frame_basename,
+                            tm2,
+                            tm2_arrival_us,
+                            frame_recv_us,
+                            frame_delay_us,
+                            paired_seq);
 
                 tm2_count++;
                 std::cout << "[RTK] Saved frame_" << std::setfill('0') << std::setw(6) << (tm2_count - 1)
-                          << ".jpg  count=" << tm2.count << "  seq=" << paired_seq << std::endl;
+                          << ".jpg  count=" << tm2.count << "  seq=" << paired_seq
+                          << "  delay_us=" << frame_delay_us << std::endl;
             }
         }
     }

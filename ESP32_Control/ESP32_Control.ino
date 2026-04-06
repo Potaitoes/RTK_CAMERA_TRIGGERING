@@ -11,13 +11,15 @@
 #define NMEA_TX_PIN 17 // Use 200 ohms resistor on this pin.
 #define NMEA_BAUD 9600
 
-#define INTERVAL_US 100000UL   // 100 ms => 10 Hz
-#define PULSE_WIDTH_US 10000UL // 10 ms pulse width
+#define FRAME_PERIOD_US 100000UL         // 100 ms => 10 Hz
+#define EXPOSURE_END_OFFSET_US 30000UL   // 30 ms exposure target
+#define TRIGGER_PULSE_WIDTH_US 1000UL    // width of each trigger pulse
 
 volatile uint32_t syncTimeUs = 0;
 volatile bool synced = false;
 volatile uint32_t lastPpsUs = 0;
 volatile bool rmcPending = false;
+volatile bool outputHigh = false;
 
 struct NavPvtData {
   bool validDateTime = false;
@@ -249,6 +251,7 @@ void IRAM_ATTR onPPS() {
   synced = true;
   rmcPending = true;
   digitalWrite(OUT_PIN, HIGH);
+  outputHigh = true;
 }
 
 // ==== SETUP ====
@@ -268,8 +271,6 @@ void setup() {
 
 // ==== LOOP ====
 void loop() {
-  static bool outputHigh = false;
-
   while (Serial2.available() > 0) {
     parseUbxByte((uint8_t)Serial2.read());
   }
@@ -287,8 +288,12 @@ void loop() {
   interrupts();
 
   uint32_t elapsedUs = micros() - startUs;
-  uint32_t phaseUs = elapsedUs % INTERVAL_US;
-  bool shouldBeHigh = phaseUs < PULSE_WIDTH_US;
+  uint32_t phaseUs = elapsedUs % FRAME_PERIOD_US;
+
+  bool startPulseHigh = phaseUs < TRIGGER_PULSE_WIDTH_US;
+  bool endPulseHigh = phaseUs >= EXPOSURE_END_OFFSET_US &&
+                      phaseUs < (EXPOSURE_END_OFFSET_US + TRIGGER_PULSE_WIDTH_US);
+  bool shouldBeHigh = startPulseHigh || endPulseHigh;
 
   if (shouldBeHigh != outputHigh) {
     digitalWrite(OUT_PIN, shouldBeHigh ? HIGH : LOW);
