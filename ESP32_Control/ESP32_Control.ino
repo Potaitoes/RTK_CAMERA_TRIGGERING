@@ -12,8 +12,10 @@
 #define NMEA_BAUD 9600
 
 #define FRAME_PERIOD_US 100000UL         // 100 ms => 10 Hz
-#define EXPOSURE_END_OFFSET_US 30000UL   // 30 ms exposure target
-#define TRIGGER_PULSE_WIDTH_US 1000UL    // width of each trigger pulse
+#define TRIGGER_START_OFFSET_US 10000UL  // trigger 10 ms after period boundary
+#define TRIGGER_PULSE_WIDTH_US 5000UL    // 5 ms trigger pulse (HIGH)
+#define EXPOSURE_END_OFFSET_US 40000UL   // exposure ends 30 ms after trigger start (10+30)
+#define CLOSE_EXTEND_US 5000UL           // closing pulse extends 5 ms past next period
 
 volatile uint32_t syncTimeUs = 0;
 volatile bool synced = false;
@@ -250,8 +252,6 @@ void IRAM_ATTR onPPS() {
   lastPpsUs = syncTimeUs;
   synced = true;
   rmcPending = true;
-  digitalWrite(OUT_PIN, HIGH);
-  outputHigh = true;
 }
 
 // ==== SETUP ====
@@ -290,10 +290,16 @@ void loop() {
   uint32_t elapsedUs = micros() - startUs;
   uint32_t phaseUs = elapsedUs % FRAME_PERIOD_US;
 
-  bool startPulseHigh = phaseUs < TRIGGER_PULSE_WIDTH_US;
-  bool endPulseHigh = phaseUs >= EXPOSURE_END_OFFSET_US &&
-                      phaseUs < (EXPOSURE_END_OFFSET_US + TRIGGER_PULSE_WIDTH_US);
-  bool shouldBeHigh = startPulseHigh || endPulseHigh;
+  // Trigger pulse: 10 ms → 11 ms into each period
+  bool startPulse = (phaseUs >= TRIGGER_START_OFFSET_US) &&
+                    (phaseUs < (TRIGGER_START_OFFSET_US + TRIGGER_PULSE_WIDTH_US));
+
+  // Closing pulse: from EXPOSURE_END_OFFSET to 5 ms past next period boundary
+  // Wraps around: [EXPOSURE_END_OFFSET .. period end] ∪ [0 .. CLOSE_EXTEND]
+  bool closingPulse = (phaseUs >= EXPOSURE_END_OFFSET_US) ||
+                      (phaseUs < CLOSE_EXTEND_US);
+
+  bool shouldBeHigh = startPulse || closingPulse;
 
   if (shouldBeHigh != outputHigh) {
     digitalWrite(OUT_PIN, shouldBeHigh ? HIGH : LOW);
