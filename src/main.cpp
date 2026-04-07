@@ -79,7 +79,15 @@ void camera_thread(const std::string& video_dev, const std::string& frames_dir, 
     uint32_t read_fail_count = 0;
 
     while (!stop_flag) {
-        if (!cap.read(frame)) {
+        bool read_ok = false;
+        try {
+            read_ok = cap.read(frame);
+        } catch (const cv::Exception& e) {
+            std::cerr << "[Camera] WARNING: cap.read() exception: " << e.what() << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+        if (!read_ok) {
             read_fail_count++;
             if (read_fail_count % 100 == 0) {
                 std::cout << "[Camera] WARNING: cap.read() failing repeatedly" << std::endl;

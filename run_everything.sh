@@ -37,7 +37,7 @@ LAUNCH_PID=$!
 
 sleep 10  # Wait for the launch to initialize
 
-ros2 bag record /imu/data /imu/data_raw /lidar_points --max-bag-duration 180 -o "${SESSION_DIR}" &
+ros2 bag record /imu/data /imu/data_raw /lidar_points --max-bag-duration 180 -o "${SESSION_DIR}/bag" &
 BAG_PID=$!
 
 sleep 5  # Ensure the bag recording has started
