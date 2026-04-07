@@ -4,6 +4,15 @@ BASE_DIR="/home/vitom/recordSample"
 SESSION_NAME="$(date +%Y%m%d_%H%M%S)"
 SESSION_DIR="${BASE_DIR}/${SESSION_NAME}"
 
+# If folder already exists, append a suffix
+if [ -d "${SESSION_DIR}" ]; then
+    i=1
+    while [ -d "${SESSION_DIR}_${i}" ]; do
+        i=$((i + 1))
+    done
+    SESSION_DIR="${SESSION_DIR}_${i}"
+fi
+
 mkdir -p "${SESSION_DIR}"
 echo "[run_everything] Session folder: ${SESSION_DIR}"
 
@@ -28,7 +37,7 @@ LAUNCH_PID=$!
 
 sleep 10  # Wait for the launch to initialize
 
-ros2 bag record /imu/data /imu/data_raw /lidar_points --max-bag-duration 180 -o "${SESSION_DIR}/bag" &
+ros2 bag record /imu/data /imu/data_raw /lidar_points --max-bag-duration 180 -o "${SESSION_DIR}" &
 BAG_PID=$!
 
 sleep 5  # Ensure the bag recording has started
