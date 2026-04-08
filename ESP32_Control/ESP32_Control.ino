@@ -14,7 +14,8 @@
 #define FRAME_PERIOD_US 100000UL         // 100 ms => 10 Hz
 #define TRIGGER_START_OFFSET_US 10000UL  // trigger 10 ms after period boundary
 #define TRIGGER_PULSE_WIDTH_US 5000UL    // 5 ms trigger pulse (HIGH)
-#define EXPOSURE_END_OFFSET_US 40000UL   // exposure ends 30 ms after trigger start (10+30)
+#define EXPOSURE_TIME_US 30000UL          // 30 ms exposure time (camera-specific, must be ≤ pulse width)
+#define EXPOSURE_END_OFFSET_US (TRIGGER_START_OFFSET_US + EXPOSURE_TIME_US)   // exposure ends 30 ms after trigger start (10+30)
 #define CLOSE_EXTEND_US 5000UL           // closing pulse extends 5 ms past next period
 
 volatile uint32_t syncTimeUs = 0;
@@ -78,30 +79,6 @@ static uint8_t daysInMonth(uint16_t year, uint8_t month) {
   static const uint8_t days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   if (month == 2 && isLeapYear(year)) return 29;
   return days[month - 1];
-}
-
-static void incrementUtcOneSecond(NavPvtData &nav) {
-  nav.second++;
-  if (nav.second < 60) return;
-  nav.second = 0;
-
-  nav.minute++;
-  if (nav.minute < 60) return;
-  nav.minute = 0;
-
-  nav.hour++;
-  if (nav.hour < 24) return;
-  nav.hour = 0;
-
-  nav.day++;
-  if (nav.day <= daysInMonth(nav.year, nav.month)) return;
-  nav.day = 1;
-
-  nav.month++;
-  if (nav.month <= 12) return;
-  nav.month = 1;
-
-  nav.year++;
 }
 
 static void sendGprmc(const NavPvtData &nav) {
