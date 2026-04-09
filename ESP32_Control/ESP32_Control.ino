@@ -11,16 +11,11 @@
 #define NMEA_TX_PIN 17 // Use 200 ohms resistor on this pin.
 #define NMEA_BAUD 9600
 
-#define PERIOD_US 200000UL               // 200 ms period
-#define PULSE1_START_US 20000UL          // 20 ms after PPS
-#define PULSE1_END_US 30000UL            // 30 ms after PPS
-#define PULSE2_START_US 40000UL          // 40 ms after PPS
-#define PULSE2_END_US PERIOD_US          // 200 ms after PPS (end of period)
+#define FRAME_PERIOD_US 100000UL         // 100 ms => 10 Hz
 #define TRIGGER_START_OFFSET_US 10000UL  // trigger 10 ms after period boundary
-#define TRIGGER_PULSE_WIDTH_US 10000UL    // 10 ms trigger pulse (HIGH)
-#define EXPOSURE_TIME_US 30000UL          // 30 ms exposure time (camera-specific, must be ≤ pulse width)
-#define EXPOSURE_END_OFFSET_US (TRIGGER_START_OFFSET_US + EXPOSURE_TIME_US)   // exposure ends 30 ms after trigger start (10+30)
-#define CLOSE_EXTEND_US 10000UL           // closing pulse extends 10 ms past next period
+#define TRIGGER_PULSE_WIDTH_US 5000UL    // 5 ms trigger pulse (HIGH)
+#define EXPOSURE_END_OFFSET_US 40000UL   // exposure ends 30 ms after trigger start (10+30)
+#define CLOSE_EXTEND_US 5000UL           // closing pulse extends 5 ms past next period
 
 volatile uint32_t syncTimeUs = 0;
 volatile bool synced = false;
@@ -83,6 +78,30 @@ static uint8_t daysInMonth(uint16_t year, uint8_t month) {
   static const uint8_t days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   if (month == 2 && isLeapYear(year)) return 29;
   return days[month - 1];
+}
+
+static void incrementUtcOneSecond(NavPvtData &nav) {
+  nav.second++;
+  if (nav.second < 60) return;
+  nav.second = 0;
+
+  nav.minute++;
+  if (nav.minute < 60) return;
+  nav.minute = 0;
+
+  nav.hour++;
+  if (nav.hour < 24) return;
+  nav.hour = 0;
+
+  nav.day++;
+  if (nav.day <= daysInMonth(nav.year, nav.month)) return;
+  nav.day = 1;
+
+  nav.month++;
+  if (nav.month <= 12) return;
+  nav.month = 1;
+
+  nav.year++;
 }
 
 static void sendGprmc(const NavPvtData &nav) {
@@ -269,17 +288,18 @@ void loop() {
   interrupts();
 
   uint32_t elapsedUs = micros() - startUs;
-  uint32_t phaseUs = elapsedUs % PERIOD_US;
+  uint32_t phaseUs = elapsedUs % FRAME_PERIOD_US;
 
-  // First pulse: 10ms high, 20ms low, starts 20ms after PPS
-  // High: [PULSE1_START_US, PULSE1_END_US)
-  bool pulse1_high = (phaseUs >= PULSE1_START_US) && (phaseUs < PULSE1_END_US);
+  // Trigger pulse: 10 ms → 11 ms into each period
+  bool startPulse = (phaseUs >= TRIGGER_START_OFFSET_US) &&
+                    (phaseUs < (TRIGGER_START_OFFSET_US + TRIGGER_PULSE_WIDTH_US));
 
-  // Second pulse: 160ms high, 10ms low, starts 40ms after PPS
-  // High: [PULSE2_START_US, PULSE2_END_US)
-  bool pulse2_high = (phaseUs >= PULSE2_START_US) && (phaseUs < PULSE2_END_US);
+  // Closing pulse: from EXPOSURE_END_OFFSET to 5 ms past next period boundary
+  // Wraps around: [EXPOSURE_END_OFFSET .. period end] ∪ [0 .. CLOSE_EXTEND]
+  bool closingPulse = (phaseUs >= EXPOSURE_END_OFFSET_US) ||
+                      (phaseUs < CLOSE_EXTEND_US);
 
-  bool shouldBeHigh = pulse1_high || pulse2_high;
+  bool shouldBeHigh = startPulse || closingPulse;
 
   if (shouldBeHigh != outputHigh) {
     digitalWrite(OUT_PIN, shouldBeHigh ? HIGH : LOW);
