@@ -65,8 +65,8 @@ void camera_thread(const std::string& video_dev, const std::string& frames_dir, 
 
     // Set 1920x1080 MJPG
     cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 3840);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 2160);
     std::cout << "[Camera] Resolution: " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
               << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << std::endl;
 
