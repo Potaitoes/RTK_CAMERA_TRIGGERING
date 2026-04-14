@@ -20,7 +20,7 @@ from pathlib import Path
 GPS_UNIX_EPOCH = 315964800  # 1980-01-06 00:00:00 UTC
 GPS_WEEK_SECONDS = 604800
 NS_TO_S = 1e-9
-EXPOSURE_CENTER_OFFSET_S = 0.030  # subtract 30 ms from each camera timestamp
+EXPOSURE_CENTER_OFFSET_S = 0.015  # subtract 15 ms from each camera timestamp
 
 
 def gps_tow_to_unix_seconds(wn: int, tow_ms: int, tow_sub_ms_ns: int) -> float:
@@ -105,26 +105,18 @@ def match_frames_to_tm2(
         tm2_time_us = int(tm2["arrival_us"])
         insertion_index = bisect_left(frame_times_us, tm2_time_us, lo=next_frame_start)
 
-        candidate_indexes = []
-        # Consider both neighbors around insertion index and pick the closest,
-        # regardless of being before or after TM2 arrival.
-        if insertion_index < len(filtered_frames):
-            candidate_indexes.append(insertion_index)
-        if insertion_index - 1 >= next_frame_start:
-            candidate_indexes.append(insertion_index - 1)
+        # Only consider frames strictly before the TM2 event
+        candidate_indexes = [i for i in range(next_frame_start, insertion_index) if frame_times_us[i] < tm2_time_us]
 
         if not candidate_indexes:
             continue
 
-        best_index = min(
-            candidate_indexes,
-            key=lambda index: abs(frame_times_us[index] - tm2_time_us),
-        )
+        # Pick the closest frame before TM2
+        best_index = max(candidate_indexes, key=lambda index: frame_times_us[index])
         best_distance_us = abs(frame_times_us[best_index] - tm2_time_us)
 
         if best_distance_us > max_time_diff_us:
-            if frame_times_us[best_index] < tm2_time_us:
-                next_frame_start = best_index + 1
+            next_frame_start = best_index + 1
             continue
 
         best_frame = filtered_frames[best_index]
@@ -141,7 +133,6 @@ def match_frames_to_tm2(
                 "time_diff_us": f"{best_distance_us}",
                 "brightness": best_frame.get("brightness", ""),
             })
-    
     return matched
 
 
@@ -213,7 +204,7 @@ def main() -> None:
     # Delta time filters (in microseconds)
     min_delta_us = 25000 #exposures of 25000 us or more (25 ms) are expected, so this filters out any frames that are too close together to be valid
     max_delta_us = 36000 #exposures of 36000 us or less (36 ms) are expected, so this filters out any frames that are too far apart to be valid (e.g. dropped frames or long gaps)
-    max_match_diff_us = 55000 # allow matches within 55 ms of TM2 arrival time, which should be sufficient given the expected frame rate and timing variability. This is a more lenient threshold to account for any potential timing discrepancies while still aiming to match the correct frames.
+    max_match_diff_us = 180000 # allow matches within 180 ms of TM2 arrival time, suitable for 200ms period with frame near the beginning.
     
     # Validate required inputs
     missing = []
