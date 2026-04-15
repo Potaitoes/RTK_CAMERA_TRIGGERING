@@ -4,11 +4,10 @@ Complete pipeline to filter camera frames and tm2 edges, match them, and prepare
 
 Steps:
 1. Filter frames.csv by delta_t_prev_us (25-35 ms)
-2. Filter the delta-filtered frames by image quality and remove blurry frames
-3. Convert tm2.csv rising edges to UTC timestamps (no leap seconds)
-4. Match the remaining frames to tm2 rising edges by receiver timebase
-5. Copy matched frames to a new directory
-6. Create cameraTimes.csv with UTC timestamps of matched frames
+2. Convert tm2.csv rising edges to UTC timestamps (no leap seconds)
+3. Match filtered frames to tm2 rising edges by receiver timebase
+4. Copy matched frames to a new directory
+5. Create cameraTimes.csv with UTC timestamps of matched frames
 """
 
 from __future__ import annotations
@@ -18,13 +17,10 @@ import shutil
 from bisect import bisect_left
 from pathlib import Path
 
-import cv2
-
 GPS_UNIX_EPOCH = 315964800  # 1980-01-06 00:00:00 UTC
 GPS_WEEK_SECONDS = 604800
 NS_TO_S = 1e-9
 EXPOSURE_CENTER_OFFSET_S = 0.015  # subtract 15 ms from each camera timestamp
-MIN_FRAME_QUALITY_SCORE = 100.0  # Variance of Laplacian; lower values are typically blurrier.
 
 
 def gps_tow_to_unix_seconds(wn: int, tow_ms: int, tow_sub_ms_ns: int) -> float:
@@ -66,62 +62,6 @@ def filter_frames_by_delta(
             except KeyError:
                 continue
     return filtered
-
-
-def resolve_frame_path(src_image_dir: Path, filename: str) -> Path:
-    """Resolve a frame filename against the raw image directory."""
-    candidate = src_image_dir / filename
-    if candidate.exists():
-        return candidate
-    return src_image_dir / Path(filename).name
-
-
-def compute_frame_quality_score(image_path: Path) -> float | None:
-    """Return a blur score using variance of the Laplacian."""
-    image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
-    if image is None:
-        return None
-    return float(cv2.Laplacian(image, cv2.CV_64F).var())
-
-
-def filter_frames_by_quality(
-    frames: list[dict[str, str]],
-    src_image_dir: Path,
-    min_quality_score: float,
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Remove blurry, missing, or unreadable frames after delta filtering."""
-    kept: list[dict[str, str]] = []
-    removed: list[dict[str, str]] = []
-
-    for frame in frames:
-        image_path = resolve_frame_path(src_image_dir, frame["filename"])
-        row = dict(frame)
-        row["image_path"] = str(image_path)
-
-        if not image_path.exists():
-            row["quality_score"] = ""
-            row["quality_status"] = "missing_image"
-            removed.append(row)
-            continue
-
-        quality_score = compute_frame_quality_score(image_path)
-        if quality_score is None:
-            row["quality_score"] = ""
-            row["quality_status"] = "unreadable_image"
-            removed.append(row)
-            continue
-
-        row["quality_score"] = f"{quality_score:.6f}"
-        if quality_score < min_quality_score:
-            row["quality_status"] = "blurry"
-            removed.append(row)
-            continue
-
-        row["quality_status"] = "kept"
-        kept.append(row)
-
-    return kept, removed
-
 
 
 def convert_tm2_rising_edges(tm2_csv: Path) -> list[dict[str, str | float]]:
@@ -236,21 +176,21 @@ def write_camera_times(
     return len(matched)
 
 
-def write_frames_csv(
-    frames: list[dict[str, str]],
+def write_filtered_frames_by_delta_csv(
+    filtered_frames: list[dict[str, str]],
     output_csv: Path,
 ) -> int:
-    """Write frame rows to CSV with header."""
+    """Write filtered frames (post-delta filter) to CSV with header."""
     output_csv.parent.mkdir(parents=True, exist_ok=True)
 
-    fieldnames = list(frames[0].keys()) if frames else []
+    fieldnames = list(filtered_frames[0].keys()) if filtered_frames else []
     with output_csv.open("w", newline="") as f:
         if fieldnames:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(frames)
+            writer.writerows(filtered_frames)
 
-    return len(frames)
+    return len(filtered_frames)
 
 
 def main() -> None:
@@ -264,7 +204,6 @@ def main() -> None:
     # Delta time filters (in microseconds)
     min_delta_us = 25000 #exposures of 25000 us or more (25 ms) are expected, so this filters out any frames that are too close together to be valid
     max_delta_us = 36000 #exposures of 36000 us or less (36 ms) are expected, so this filters out any frames that are too far apart to be valid (e.g. dropped frames or long gaps)
-    min_quality_score = MIN_FRAME_QUALITY_SCORE
     max_match_diff_us = 180000 # allow matches within 180 ms of TM2 arrival time, suitable for 200ms period with frame near the beginning.
     
     # Validate required inputs
@@ -293,49 +232,26 @@ def main() -> None:
     print(f"  Filtered to {len(filtered_frames)} frames")
 
     filtered_frames_csv = output_dir / "files" / "filtered_frames_by_delta.csv"
-    wrote_filtered = write_frames_csv(
+    wrote_filtered = write_filtered_frames_by_delta_csv(
         filtered_frames,
         filtered_frames_csv,
     )
     print(f"  Wrote {wrote_filtered} filtered frames to {filtered_frames_csv}")
 
-    print("Step 2: Filtering frames by quality...")
-    quality_filtered_frames, removed_frames = filter_frames_by_quality(
-        filtered_frames,
-        src_image_dir,
-        min_quality_score,
-    )
-    print(f"  Kept {len(quality_filtered_frames)} frames after quality filtering")
-    print(f"  Removed {len(removed_frames)} frames due to blur or unreadable images")
-
-    quality_filtered_frames_csv = output_dir / "files" / "filtered_frames_by_delta_and_quality.csv"
-    wrote_quality_filtered = write_frames_csv(
-        quality_filtered_frames,
-        quality_filtered_frames_csv,
-    )
-    print(f"  Wrote {wrote_quality_filtered} quality-filtered frames to {quality_filtered_frames_csv}")
-
-    removed_frames_csv = output_dir / "files" / "removed_frames_by_quality.csv"
-    wrote_removed = write_frames_csv(
-        removed_frames,
-        removed_frames_csv,
-    )
-    print(f"  Wrote {wrote_removed} removed frames to {removed_frames_csv}")
-
-    print("Step 3: Converting TM2 rising edges to UTC...")
+    print("Step 2: Converting TM2 rising edges to UTC...")
     tm2_edges = convert_tm2_rising_edges(tm2_csv)
     print(f"  Converted {len(tm2_edges)} TM2 edges")
 
-    print("Step 4: Matching frames to TM2 edges...")
-    matched = match_frames_to_tm2(quality_filtered_frames, tm2_edges, max_match_diff_us)
+    print("Step 3: Matching frames to TM2 edges...")
+    matched = match_frames_to_tm2(filtered_frames, tm2_edges, max_match_diff_us)
     print(f"  Matched {len(matched)} pairs")
 
-    print("Step 5: Copying matched frame images...")
+    print("Step 4: Copying matched frame images...")
     dst_image_dir = output_dir / "images" / "camera1"
     copied = copy_matched_frames(matched, src_image_dir, dst_image_dir)
     print(f"  Copied {copied} unique frames to {dst_image_dir}")
 
-    print("Step 6: Writing cameraTimes/camera1.csv...")
+    print("Step 5: Writing cameraTimes/camera1.csv...")
     camera_times_csv = output_dir / "cameraTimes" / "camera1.csv"
     camera_times_csv.parent.mkdir(parents=True, exist_ok=True)
     wrote = write_camera_times(
