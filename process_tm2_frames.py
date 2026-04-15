@@ -4,10 +4,11 @@ Complete pipeline to filter camera frames and tm2 edges, match them, and prepare
 
 Steps:
 1. Filter frames.csv by delta_t_prev_us (25-35 ms)
-2. Convert tm2.csv rising edges to UTC timestamps (no leap seconds)
-3. Match filtered frames to tm2 rising edges by receiver timebase
-4. Copy matched frames to a new directory
-5. Create cameraTimes.csv with UTC timestamps of matched frames
+2. Filter the delta-filtered frames by image quality and remove blurry frames
+3. Convert tm2.csv rising edges to UTC timestamps (no leap seconds)
+4. Match the remaining frames to tm2 rising edges by receiver timebase
+5. Copy matched frames to a new directory
+6. Create cameraTimes.csv with UTC timestamps of matched frames
 """
 
 from __future__ import annotations
@@ -17,10 +18,13 @@ import shutil
 from bisect import bisect_left
 from pathlib import Path
 
+import cv2
+
 GPS_UNIX_EPOCH = 315964800  # 1980-01-06 00:00:00 UTC
 GPS_WEEK_SECONDS = 604800
 NS_TO_S = 1e-9
 EXPOSURE_CENTER_OFFSET_S = 0.015  # subtract 15 ms from each camera timestamp
+MIN_FRAME_QUALITY_SCORE = 100.0  # Variance of Laplacian; lower values are typically blurrier.
 
 
 def gps_tow_to_unix_seconds(wn: int, tow_ms: int, tow_sub_ms_ns: int) -> float:
