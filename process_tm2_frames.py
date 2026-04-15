@@ -64,6 +64,7 @@ def filter_frames_by_delta(
     return filtered
 
 
+
 def convert_tm2_rising_edges(tm2_csv: Path) -> list[dict[str, str | float]]:
     """Convert tm2 rising edges to UTC timestamps."""
     edges = []

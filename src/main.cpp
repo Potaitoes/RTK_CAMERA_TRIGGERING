@@ -26,17 +26,40 @@ constexpr const char* VIDEO_DEV = "/dev/video0";
 constexpr const char* RTK_PORT = "/dev/ttyACM0";
 constexpr int RTK_BAUD = 115200;
 constexpr const char* OUTPUT_DIR = "./recordings";
+constexpr int CAMERA_BUFFER_SIZE = 1;
+constexpr int POST_TRIGGER_FLUSH_FRAMES = 8;
+constexpr int POST_TRIGGER_FLUSH_TIMEOUT_MS = 3000;
+constexpr double GPS_UNIX_EPOCH = 315964800.0;  // 1980-01-06 00:00:00 UTC
+constexpr double GPS_WEEK_SECONDS = 604800.0;
+constexpr double NS_TO_S = 1e-9;
 
 // ===== GLOBALS =====
 std::atomic<bool> stop_flag(false);
 std::atomic<bool> stream_ready(false);
+std::atomic<bool> frame_logging_enabled(false);
+std::atomic<bool> post_trigger_flush_done(false);
 std::atomic<uint64_t> frame_count(0);
+std::atomic<int> discard_frames_remaining(0);
 
 std::queue<std::pair<std::string, cv::Mat>> save_queue;
 std::mutex save_queue_mtx;
 std::condition_variable save_queue_cv;
 
 int tm2_count = 0;
+
+int64_t monotonic_time_us() {
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts); 
+    return static_cast<int64_t>(ts.tv_sec) * 1000000LL
+         + static_cast<int64_t>(ts.tv_nsec) / 1000LL;
+}
+
+double tm2_rising_edge_unix_seconds(const TIM_TM2& tm2) {
+    return GPS_UNIX_EPOCH
+         + static_cast<double>(tm2.wnR) * GPS_WEEK_SECONDS
+         + static_cast<double>(tm2.towMsR) / 1000.0
+         + static_cast<double>(tm2.towSubMsR) * NS_TO_S;
+}
 
 // ===== SIGNAL HANDLER =====
 void signal_handler(int sig) {
@@ -67,6 +90,9 @@ void camera_thread(const std::string& video_dev, const std::string& frames_dir, 
     cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
+    if (!cap.set(cv::CAP_PROP_BUFFERSIZE, CAMERA_BUFFER_SIZE)) {
+        std::cout << "[Camera] WARNING: CAP_PROP_BUFFERSIZE not supported by backend/driver" << std::endl;
+    }
     std::cout << "[Camera] Resolution: " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
               << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << std::endl;
 
@@ -100,9 +126,19 @@ void camera_thread(const std::string& video_dev, const std::string& frames_dir, 
         if (frame.empty()) continue;  // skip corrupt/empty frames
         stream_ready = true;
 
-        auto recv_time = std::chrono::system_clock::now();
-        auto recv_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            recv_time.time_since_epoch()).count();
+        if (!frame_logging_enabled.load()) {
+            int remaining = discard_frames_remaining.load();
+            if (remaining > 0) {
+                int prev_remaining = discard_frames_remaining.fetch_sub(1);
+                if (prev_remaining <= 1) {
+                    discard_frames_remaining.store(0);
+                    post_trigger_flush_done = true;
+                }
+            }
+            continue;
+        }
+
+        int64_t recv_us = monotonic_time_us();
 
         uint64_t idx = frame_count++;
 
@@ -216,6 +252,7 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& csv_path)
     UBXParser parser;
     uint8_t byte;
     TIM_TM2 tm2;
+    bool logged_offset_estimate = false;
 
     while (!stop_flag) {
         int bytes_read = sp_blocking_read(port, &byte, 1, 100);
@@ -225,8 +262,17 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& csv_path)
             if (parser.parse_message(parser.payload, tm2)) {
                 if (!tm2.newRisingEdge) continue;
 
-                auto arrival_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
+                int64_t arrival_us = monotonic_time_us();
+                double rising_edge_utc_s = tm2_rising_edge_unix_seconds(tm2);
+
+                if (!logged_offset_estimate) {
+                    double gps_minus_mono_offset_s =
+                        rising_edge_utc_s - static_cast<double>(arrival_us) / 1e6;
+                    std::cout << "[RTK] Initial GPS-minus-monotonic offset estimate: "
+                              << std::fixed << std::setprecision(6)
+                              << gps_minus_mono_offset_s << " s" << std::endl;
+                    logged_offset_estimate = true;
+                }
 
                 csv_file << tm2_count << ","
                          << arrival_us << ","
@@ -300,11 +346,30 @@ int main(int argc, char* argv[]) {
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
+    std::thread saver_t(saver_thread);
+
     std::cout << "[Camera] Stream active. Setting trigger mode..." << std::endl;
     int ret1 = system("python3 trigger_mode.py 1");
     (void)ret1;  // Suppress unused result warning
 
-    std::thread saver_t(saver_thread);
+    discard_frames_remaining = POST_TRIGGER_FLUSH_FRAMES;
+    post_trigger_flush_done = false;
+    std::cout << "[Camera] Flushing " << POST_TRIGGER_FLUSH_FRAMES
+              << " queued frames after trigger-mode switch..." << std::endl;
+    auto flush_start = std::chrono::steady_clock::now();
+    while (!stop_flag && !post_trigger_flush_done.load()) {
+        if (std::chrono::steady_clock::now() - flush_start >
+            std::chrono::milliseconds(POST_TRIGGER_FLUSH_TIMEOUT_MS)) {
+            std::cerr << "[Camera] WARNING: Timed out waiting for post-trigger flush; continuing."
+                      << std::endl;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    frame_logging_enabled = true;
+    std::cout << "[Camera] Frame logging enabled after trigger-mode flush." << std::endl;
+
     std::thread rtk_t(rtk_logger_thread, rtk_port, tm2_csv_path);
 
     std::cout << "[Session] Running. Press Ctrl+C to stop." << std::endl;
