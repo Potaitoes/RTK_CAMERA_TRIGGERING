@@ -11,7 +11,7 @@
 #define NMEA_TX_PIN 17 // Use 200 ohms resistor on this pin.
 #define NMEA_BAUD 9600
 
-#define FRAME_PERIOD_US 100000UL         // 100 ms => 10 Hz
+#define FRAME_PERIOD_US 200000UL         // 100 ms => 10 Hz
 #define TRIGGER_START_OFFSET_US 10000UL  // trigger 10 ms after period boundary
 #define TRIGGER_PULSE_WIDTH_US 5000UL    // 5 ms trigger pulse (HIGH)
 #define EXPOSURE_END_OFFSET_US 40000UL   // exposure ends 30 ms after trigger start (10+30)
