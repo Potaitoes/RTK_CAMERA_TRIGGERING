@@ -11,8 +11,8 @@
 #define NMEA_TX_PIN 17 // Use 200 ohms resistor on this pin.
 #define NMEA_BAUD 9600
 
-#define INTERVAL_US 100000UL   // 100 ms => 10 Hz
-#define PULSE_WIDTH_US 10000UL // 10 ms pulse width
+#define INTERVAL_US 18000UL   // 100 ms => 10 Hz
+#define PULSE_WIDTH_US 1000UL // 1 ms pulse width
 
 volatile uint32_t syncTimeUs = 0;
 volatile bool synced = false;
