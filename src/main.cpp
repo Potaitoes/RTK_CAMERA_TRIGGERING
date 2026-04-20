@@ -63,7 +63,7 @@ void camera_thread(const std::string& video_dev, const std::string& frames_dir, 
 
     std::cout << "[Camera] Opened " << video_dev << std::endl;
 
-    // Set 1920x1080 MJPG
+    // Set 1920x1080 MJPG`
     cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1440);

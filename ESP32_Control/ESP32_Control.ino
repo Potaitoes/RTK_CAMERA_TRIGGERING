@@ -12,7 +12,7 @@
 #define NMEA_BAUD 9600
 
 #define FRAME_PERIOD_US 200000UL         // 100 ms => 10 Hz
-#define EXPOSURE_TIME_US 30000UL          // 5 ms exposure time
+#define EXPOSURE_TIME_US 18000UL          // 5 ms exposure time
 #define TRIGGER_START_OFFSET_US 10000UL  // trigger 10 ms after period boundary
 #define TRIGGER_PULSE_WIDTH_US 1000UL    // 1 ms trigger pulse (HIGH)
 #define EXPOSURE_END_OFFSET_US (TRIGGER_START_OFFSET_US + EXPOSURE_TIME_US)   // exposure ends at the end of the exposure time
