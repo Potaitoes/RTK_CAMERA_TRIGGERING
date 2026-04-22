@@ -4,8 +4,14 @@
 CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_TRIGGERING/src/main.cpp \
   /home/vitom/Documents/RTK_CAMERA_TRIGGERING/src/ubx_parser.h \
   /usr/include/alloca.h \
+  /usr/include/asm-generic/bitsperlong.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
+  /usr/include/asm-generic/int-ll64.h \
+  /usr/include/asm-generic/ioctl.h \
+  /usr/include/asm-generic/ioctls.h \
+  /usr/include/asm-generic/posix_types.h \
+  /usr/include/asm-generic/types.h \
   /usr/include/assert.h \
   /usr/include/c++/13/algorithm \
   /usr/include/c++/13/array \
@@ -188,14 +194,24 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/ctype.h \
   /usr/include/endian.h \
   /usr/include/errno.h \
+  /usr/include/fcntl.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
   /usr/include/libintl.h \
   /usr/include/libserialport.h \
   /usr/include/limits.h \
   /usr/include/linux/close_range.h \
+  /usr/include/linux/const.h \
   /usr/include/linux/errno.h \
+  /usr/include/linux/falloc.h \
+  /usr/include/linux/ioctl.h \
   /usr/include/linux/limits.h \
+  /usr/include/linux/posix_types.h \
+  /usr/include/linux/stddef.h \
+  /usr/include/linux/types.h \
+  /usr/include/linux/v4l2-common.h \
+  /usr/include/linux/v4l2-controls.h \
+  /usr/include/linux/videodev2.h \
   /usr/include/locale.h \
   /usr/include/math.h \
   /usr/include/opencv4/opencv2/core.hpp \
@@ -239,7 +255,13 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/unistd.h \
   /usr/include/wchar.h \
   /usr/include/wctype.h \
+  /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
   /usr/include/x86_64-linux-gnu/asm/errno.h \
+  /usr/include/x86_64-linux-gnu/asm/ioctl.h \
+  /usr/include/x86_64-linux-gnu/asm/ioctls.h \
+  /usr/include/x86_64-linux-gnu/asm/posix_types.h \
+  /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
+  /usr/include/x86_64-linux-gnu/asm/types.h \
   /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
   /usr/include/x86_64-linux-gnu/bits/byteswap.h \
   /usr/include/x86_64-linux-gnu/bits/confname.h \
@@ -248,6 +270,9 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/x86_64-linux-gnu/bits/endianness.h \
   /usr/include/x86_64-linux-gnu/bits/environments.h \
   /usr/include/x86_64-linux-gnu/bits/errno.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl2.h \
   /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
   /usr/include/x86_64-linux-gnu/bits/floatn.h \
   /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h \
@@ -255,6 +280,8 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/x86_64-linux-gnu/bits/fp-logb.h \
   /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
   /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
+  /usr/include/x86_64-linux-gnu/bits/ioctl-types.h \
+  /usr/include/x86_64-linux-gnu/bits/ioctls.h \
   /usr/include/x86_64-linux-gnu/bits/iscanonical.h \
   /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
   /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h \
@@ -265,6 +292,11 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h \
   /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
   /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
+  /usr/include/x86_64-linux-gnu/bits/mman-linux.h \
+  /usr/include/x86_64-linux-gnu/bits/mman-map-flags-generic.h \
+  /usr/include/x86_64-linux-gnu/bits/mman-shared.h \
+  /usr/include/x86_64-linux-gnu/bits/mman.h \
+  /usr/include/x86_64-linux-gnu/bits/mman_ext.h \
   /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
   /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
   /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
@@ -289,6 +321,7 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/x86_64-linux-gnu/bits/sigstksz.h \
   /usr/include/x86_64-linux-gnu/bits/sigthread.h \
   /usr/include/x86_64-linux-gnu/bits/ss_flags.h \
+  /usr/include/x86_64-linux-gnu/bits/stat.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
@@ -303,6 +336,7 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
   /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
   /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
+  /usr/include/x86_64-linux-gnu/bits/struct_stat.h \
   /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
   /usr/include/x86_64-linux-gnu/bits/time.h \
   /usr/include/x86_64-linux-gnu/bits/time64.h \
@@ -331,6 +365,7 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/x86_64-linux-gnu/bits/types/stack_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
+  /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_sigstack.h \
@@ -372,8 +407,12 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs.h \
   /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+  /usr/include/x86_64-linux-gnu/sys/ioctl.h \
+  /usr/include/x86_64-linux-gnu/sys/mman.h \
   /usr/include/x86_64-linux-gnu/sys/select.h \
   /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
+  /usr/include/x86_64-linux-gnu/sys/time.h \
+  /usr/include/x86_64-linux-gnu/sys/ttydefaults.h \
   /usr/include/x86_64-linux-gnu/sys/types.h \
   /usr/include/x86_64-linux-gnu/sys/ucontext.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/emmintrin.h \
@@ -476,7 +515,13 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/x86_64-linux-gnu/sys/types.h:
 
+/usr/include/x86_64-linux-gnu/sys/time.h:
+
 /usr/include/x86_64-linux-gnu/sys/single_threaded.h:
+
+/usr/include/x86_64-linux-gnu/sys/mman.h:
+
+/usr/include/x86_64-linux-gnu/sys/ioctl.h:
 
 /usr/include/x86_64-linux-gnu/sys/cdefs.h:
 
@@ -493,8 +538,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/x86_64-linux-gnu/c++/13/bits/error_constants.h:
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_base.h:
-
-/usr/include/x86_64-linux-gnu/c++/13/bits/cpu_defines.h:
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/c++locale.h:
 
@@ -538,10 +581,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/x86_64-linux-gnu/bits/types/sigval_t.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/sigset_t.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/siginfo_t.h:
-
 /usr/include/x86_64-linux-gnu/bits/types/sigevent_t.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/locale_t.h:
@@ -549,8 +588,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/lib/gcc/x86_64-linux-gnu/13/include/syslimits.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h:
 
@@ -567,6 +604,8 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/x86_64-linux-gnu/bits/types.h:
 
 /usr/include/x86_64-linux-gnu/bits/time64.h:
+
+/usr/include/x86_64-linux-gnu/bits/struct_stat.h:
 
 /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h:
 
@@ -604,6 +643,8 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/x86_64-linux-gnu/bits/sigthread.h:
 
+/usr/include/x86_64-linux-gnu/bits/stat.h:
+
 /usr/include/x86_64-linux-gnu/bits/sigstksz.h:
 
 /usr/include/x86_64-linux-gnu/bits/sigstack.h:
@@ -634,7 +675,11 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/x86_64-linux-gnu/bits/posix1_lim.h:
 
-/usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h:
+/usr/include/x86_64-linux-gnu/bits/mman_ext.h:
+
+/usr/include/x86_64-linux-gnu/bits/mman-map-flags-generic.h:
+
+/usr/include/x86_64-linux-gnu/bits/mman-linux.h:
 
 /usr/include/x86_64-linux-gnu/bits/math-vector.h:
 
@@ -642,21 +687,47 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/x86_64-linux-gnu/bits/local_lim.h:
 
-/usr/include/c++/13/ctime:
+/usr/include/x86_64-linux-gnu/sys/ttydefaults.h:
 
-/usr/include/c++/13/deque:
+/usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h:
 
-/usr/include/c++/13/cstdio:
+/usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
+/usr/include/x86_64-linux-gnu/bits/libc-header-start.h:
 
-/usr/include/c++/13/bits/charconv.h:
+/usr/include/x86_64-linux-gnu/bits/types/siginfo_t.h:
 
-/usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h:
+/usr/include/x86_64-linux-gnu/bits/ioctls.h:
 
-/usr/include/c++/13/fstream:
+/usr/include/x86_64-linux-gnu/bits/getopt_core.h:
 
-/usr/include/opencv4/opencv2/core/hal/interface.h:
+/usr/include/x86_64-linux-gnu/bits/wchar2.h:
+
+/usr/include/x86_64-linux-gnu/bits/fp-logb.h:
+
+/usr/include/x86_64-linux-gnu/bits/fp-fast.h:
+
+/usr/include/x86_64-linux-gnu/bits/floatn.h:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl.h:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
+
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
+
+/usr/include/x86_64-linux-gnu/bits/environments.h:
+
+/usr/include/x86_64-linux-gnu/bits/byteswap.h:
+
+/usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
+
+/usr/include/x86_64-linux-gnu/asm/types.h:
+
+/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
+
+/usr/include/x86_64-linux-gnu/asm/posix_types_64.h:
+
+/usr/include/x86_64-linux-gnu/asm/ioctls.h:
 
 /usr/include/x86_64-linux-gnu/bits/select2.h:
 
@@ -690,11 +761,13 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/atomic_base.h:
 
-/usr/include/c++/13/cstring:
-
 /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h:
 
 /usr/include/c++/13/bits/unique_ptr.h:
+
+/usr/include/x86_64-linux-gnu/bits/mman.h:
+
+/usr/include/x86_64-linux-gnu/bits/ioctl-types.h:
 
 /usr/include/c++/13/bits/align.h:
 
@@ -720,10 +793,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/functexcept.h:
 
-/usr/include/x86_64-linux-gnu/bits/libc-header-start.h:
-
-/usr/include/c++/13/bits/std_mutex.h:
-
 /usr/include/c++/13/bits/stl_bvector.h:
 
 /usr/include/c++/13/bits/stl_algobase.h:
@@ -742,7 +811,11 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/postypes.h:
 
+/usr/include/asm-generic/ioctls.h:
+
 /usr/include/c++/13/bits/sstream.tcc:
+
+/usr/include/x86_64-linux-gnu/asm/posix_types.h:
 
 /usr/include/c++/13/cwctype:
 
@@ -764,17 +837,21 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/stl_deque.h:
 
+/usr/include/x86_64-linux-gnu/bits/mman-shared.h:
+
 /home/vitom/Documents/RTK_CAMERA_TRIGGERING/src/main.cpp:
 
+/usr/include/x86_64-linux-gnu/bits/floatn-common.h:
+
+/usr/include/c++/13/bits/requires_hosted.h:
+
 /usr/include/c++/13/bits/locale_facets.tcc:
+
+/usr/include/c++/13/bits/std_mutex.h:
 
 /usr/include/c++/13/compare:
 
 /usr/include/c++/13/system_error:
-
-/usr/include/x86_64-linux-gnu/bits/stdio2-decl.h:
-
-/usr/include/c++/13/bits/ptr_traits.h:
 
 /usr/include/c++/13/bits/std_abs.h:
 
@@ -784,35 +861,19 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/ostream.tcc:
 
-/usr/include/c++/13/ostream:
-
-/usr/include/c++/13/tr1/riemann_zeta.tcc:
-
-/usr/include/c++/13/bits/cpp_type_traits.h:
-
 /usr/include/c++/13/bits/move.h:
 
-/usr/include/x86_64-linux-gnu/gnu/stubs.h:
+/usr/include/c++/13/bits/memoryfwd.h:
 
-/usr/include/opencv4/opencv2/core/types.hpp:
+/usr/include/x86_64-linux-gnu/bits/setjmp.h:
 
-/usr/include/c++/13/bits/exception_ptr.h:
+/usr/include/x86_64-linux-gnu/bits/getopt_posix.h:
 
-/usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h:
+/usr/include/time.h:
 
-/usr/include/x86_64-linux-gnu/bits/signal_ext.h:
-
-/usr/include/c++/13/bits/std_function.h:
-
-/usr/include/c++/13/bits/char_traits.h:
-
-/usr/include/c++/13/bits/hashtable_policy.h:
+/usr/include/c++/13/bits/invoke.h:
 
 /usr/include/c++/13/bits/stl_queue.h:
-
-/usr/include/c++/13/bits/requires_hosted.h:
-
-/usr/include/x86_64-linux-gnu/bits/floatn-common.h:
 
 /usr/include/c++/13/bits/atomic_lockfree_defines.h:
 
@@ -828,19 +889,17 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/libintl.h:
 
-/usr/include/c++/13/bits/chrono.h:
-
-/usr/include/x86_64-linux-gnu/bits/endianness.h:
-
 /usr/include/c++/13/atomic:
 
-/usr/include/c++/13/bits/stl_vector.h:
+/usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
 
-/usr/include/c++/13/bits/stl_tempbuf.h:
+/usr/include/x86_64-linux-gnu/asm/ioctl.h:
 
-/usr/include/c++/13/bits/codecvt.h:
+/usr/include/c++/13/bits/basic_ios.tcc:
 
-/usr/include/c++/13/backward/binders.h:
+/usr/include/c++/13/pstl/execution_defs.h:
+
+/usr/include/linux/stddef.h:
 
 /usr/include/c++/13/bits/alloc_traits.h:
 
@@ -850,10 +909,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/algorithmfwd.h:
 
-/usr/include/x86_64-linux-gnu/bits/wchar2.h:
-
-/usr/include/x86_64-linux-gnu/bits/fp-logb.h:
-
 /usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
 
 /usr/include/c++/13/bits/node_handle.h:
@@ -862,35 +917,95 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/predefined_ops.h:
 
-/usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
-
-/usr/include/c++/13/condition_variable:
-
 /usr/include/x86_64-linux-gnu/bits/signum-generic.h:
 
 /usr/include/c++/13/iosfwd:
+
+/usr/include/asm-generic/ioctl.h:
+
+/usr/include/asm-generic/posix_types.h:
+
+/usr/include/x86_64-linux-gnu/bits/sigcontext.h:
+
+/usr/include/c++/13/tr1/special_function_util.h:
+
+/usr/include/stdc-predef.h:
+
+/usr/include/c++/13/bits/unique_lock.h:
+
+/usr/include/c++/13/mutex:
+
+/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
+
+/usr/include/c++/13/bits/charconv.h:
+
+/usr/include/x86_64-linux-gnu/bits/signum-arch.h:
+
+/usr/include/x86_64-linux-gnu/bits/errno.h:
+
+/usr/include/c++/13/bits/stl_pair.h:
+
+/usr/include/c++/13/cstdio:
+
+/usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h:
+
+/usr/include/c++/13/fstream:
+
+/usr/include/opencv4/opencv2/core/hal/interface.h:
+
+/usr/include/c++/13/bits/allocated_ptr.h:
+
+/usr/include/c++/13/bit:
+
+/usr/include/c++/13/bits/basic_string.tcc:
+
+/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+
+/usr/include/c++/13/bits/enable_special_members.h:
+
+/usr/include/c++/13/backward/binders.h:
 
 /usr/include/c++/13/complex:
 
 /home/vitom/Documents/RTK_CAMERA_TRIGGERING/src/ubx_parser.h:
 
-/usr/include/x86_64-linux-gnu/sys/select.h:
+/usr/include/wchar.h:
 
-/usr/include/c++/13/cwchar:
+/usr/include/c++/13/bits/shared_ptr_base.h:
+
+/usr/include/c++/13/bits/basic_ios.h:
+
+/usr/include/opencv4/opencv2/core/optim.hpp:
+
+/usr/include/c++/13/backward/auto_ptr.h:
+
+/usr/include/assert.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h:
+
+/usr/include/c++/13/bits/stl_vector.h:
+
+/usr/include/c++/13/bits/stl_tempbuf.h:
+
+/usr/include/c++/13/bits/codecvt.h:
+
+/usr/include/asm-generic/int-ll64.h:
+
+/usr/include/c++/13/thread:
 
 /usr/include/opencv4/opencv2/core/traits.hpp:
 
-/usr/include/c++/13/bits/istream.tcc:
+/usr/include/x86_64-linux-gnu/bits/types/sigset_t.h:
 
-/usr/include/c++/13/bits/locale_conv.h:
+/usr/include/asm-generic/bitsperlong.h:
+
+/usr/include/asm-generic/types.h:
+
+/usr/include/c++/13/bits/stl_iterator_base_funcs.h:
+
+/usr/include/asm-generic/errno-base.h:
 
 /usr/include/alloca.h:
-
-/usr/include/c++/13/bits/basic_string.tcc:
-
-/usr/include/c++/13/bits/allocated_ptr.h:
-
-/usr/include/c++/13/bit:
 
 /usr/include/c++/13/bits/refwrap.h:
 
@@ -902,35 +1017,45 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/algorithm:
 
-/usr/include/c++/13/bits/stl_iterator_base_funcs.h:
-
-/usr/include/asm-generic/errno-base.h:
+/usr/include/c++/13/array:
 
 /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h:
 
 /usr/include/opencv4/opencv2/core/utility.hpp:
 
-/usr/include/c++/13/array:
+/usr/include/x86_64-linux-gnu/bits/endianness.h:
 
-/usr/include/c++/13/bits/unique_lock.h:
+/usr/include/c++/13/bits/chrono.h:
 
-/usr/include/c++/13/mutex:
+/usr/include/x86_64-linux-gnu/gnu/stubs.h:
 
-/usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+/usr/include/opencv4/opencv2/core/types.hpp:
 
-/usr/include/c++/13/bits/enable_special_members.h:
+/usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h:
 
-/usr/include/assert.h:
+/usr/include/x86_64-linux-gnu/bits/signal_ext.h:
 
-/usr/include/opencv4/opencv2/core/optim.hpp:
+/usr/include/c++/13/bits/std_function.h:
 
-/usr/include/c++/13/backward/auto_ptr.h:
+/usr/include/c++/13/bits/char_traits.h:
 
-/usr/include/wchar.h:
+/usr/include/c++/13/bits/hashtable_policy.h:
 
-/usr/include/c++/13/bits/shared_ptr_base.h:
+/usr/include/c++/13/bits/locale_conv.h:
 
-/usr/include/c++/13/bits/basic_ios.h:
+/usr/include/c++/13/bits/istream.tcc:
+
+/usr/include/c++/13/bits/exception_ptr.h:
+
+/usr/include/x86_64-linux-gnu/bits/flt-eval-method.h:
+
+/usr/include/c++/13/bits/streambuf_iterator.h:
+
+/usr/include/c++/13/ostream:
+
+/usr/include/c++/13/tr1/riemann_zeta.tcc:
+
+/usr/include/c++/13/bits/cpp_type_traits.h:
 
 /usr/include/c++/13/bits/cxxabi_forced.h:
 
@@ -940,9 +1065,11 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/localefwd.h:
 
-/usr/include/c++/13/bits/streambuf_iterator.h:
+/usr/include/x86_64-linux-gnu/bits/stdio2-decl.h:
 
-/usr/include/x86_64-linux-gnu/bits/flt-eval-method.h:
+/usr/include/c++/13/bits/ptr_traits.h:
+
+/usr/include/linux/posix_types.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
 
@@ -950,19 +1077,11 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/cxxabi_init_exception.h:
 
-/usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h:
-
-/usr/include/c++/13/typeinfo:
-
 /usr/include/c++/13/bits/exception.h:
 
 /usr/include/c++/13/bits/memory_resource.h:
 
 /usr/include/c++/13/streambuf:
-
-/usr/include/c++/13/bits/basic_ios.tcc:
-
-/usr/include/c++/13/pstl/execution_defs.h:
 
 /usr/include/c++/13/bits/functional_hash.h:
 
@@ -975,6 +1094,8 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/c++/13/bits/ios_base.h:
 
 /usr/include/x86_64-linux-gnu/bits/timesize.h:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl2.h:
 
 /usr/include/c++/13/bits/locale_classes.h:
 
@@ -992,19 +1113,15 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/utility:
 
-/usr/include/c++/13/bits/invoke.h:
+/usr/include/c++/13/cstring:
 
-/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
+/usr/include/c++/13/ctime:
 
-/usr/include/x86_64-linux-gnu/bits/environments.h:
+/usr/include/c++/13/deque:
 
-/usr/include/c++/13/bits/memoryfwd.h:
+/usr/include/x86_64-linux-gnu/sys/select.h:
 
-/usr/include/x86_64-linux-gnu/bits/setjmp.h:
-
-/usr/include/x86_64-linux-gnu/bits/getopt_posix.h:
-
-/usr/include/time.h:
+/usr/include/c++/13/cwchar:
 
 /usr/include/c++/13/debug/assertions.h:
 
@@ -1012,15 +1129,11 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/opencv4/opencv2/core/persistence.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/signum-arch.h:
-
-/usr/include/c++/13/bits/stl_pair.h:
-
-/usr/include/x86_64-linux-gnu/bits/errno.h:
-
 /usr/include/c++/13/ext/aligned_buffer.h:
 
 /usr/include/locale.h:
+
+/usr/include/x86_64-linux-gnu/asm/bitsperlong.h:
 
 /usr/include/c++/13/ext/alloc_traits.h:
 
@@ -1029,6 +1142,10 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/c++/13/ext/concurrence.h:
 
 /usr/include/c++/13/pstl/glue_algorithm_defs.h:
+
+/usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h:
+
+/usr/include/linux/falloc.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
 
@@ -1050,17 +1167,11 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/istream:
 
-/usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h:
-
-/usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
-
 /usr/include/x86_64-linux-gnu/bits/types/wint_t.h:
 
 /usr/include/c++/13/limits:
 
 /usr/include/c++/13/memory:
-
-/usr/include/x86_64-linux-gnu/bits/floatn.h:
 
 /usr/include/c++/13/exception:
 
@@ -1092,9 +1203,11 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/string:
 
-/usr/include/features-time64.h:
+/usr/include/x86_64-linux-gnu/bits/iscanonical.h:
 
-/usr/include/c++/13/thread:
+/usr/include/c++/13/string_view:
+
+/usr/include/features-time64.h:
 
 /usr/include/c++/13/tr1/ell_integral.tcc:
 
@@ -1104,9 +1217,9 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/tr1/exp_integral.tcc:
 
-/usr/include/c++/13/bits/std_thread.h:
-
 /usr/include/c++/13/tr1/bessel_function.tcc:
+
+/usr/include/c++/13/bits/std_thread.h:
 
 /usr/include/c++/13/initializer_list:
 
@@ -1120,17 +1233,13 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/tr1/legendre_function.tcc:
 
+/usr/include/linux/const.h:
+
 /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h:
 
 /usr/include/c++/13/tr1/modified_bessel_func.tcc:
 
 /usr/include/c++/13/tr1/poly_hermite.tcc:
-
-/usr/include/x86_64-linux-gnu/bits/sigcontext.h:
-
-/usr/include/c++/13/tr1/special_function_util.h:
-
-/usr/include/stdc-predef.h:
 
 /usr/include/c++/13/cfloat:
 
@@ -1150,6 +1259,8 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/ctype.h:
 
+/usr/include/fcntl.h:
+
 /usr/include/features.h:
 
 /usr/include/libserialport.h:
@@ -1161,6 +1272,26 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/c++/13/debug/debug.h:
 
 /usr/include/linux/errno.h:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h:
+
+/usr/include/c++/13/typeinfo:
+
+/usr/include/linux/ioctl.h:
+
+/usr/include/linux/types.h:
+
+/usr/include/linux/v4l2-common.h:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/cpu_defines.h:
+
+/usr/include/linux/v4l2-controls.h:
+
+/usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
+
+/usr/include/c++/13/condition_variable:
+
+/usr/include/linux/videodev2.h:
 
 /usr/include/c++/13/bits/uses_allocator_args.h:
 
@@ -1181,8 +1312,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/c++/13/bits/hash_bytes.h:
 
 /usr/include/opencv4/opencv2/core/cvdef.h:
-
-/usr/include/x86_64-linux-gnu/bits/byteswap.h:
 
 /usr/include/opencv4/opencv2/core/cvstd.inl.hpp:
 
@@ -1229,15 +1358,3 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/stdio.h:
 
 /usr/include/string.h:
-
-/usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
-
-/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
-
-/usr/include/x86_64-linux-gnu/bits/fp-fast.h:
-
-/usr/include/x86_64-linux-gnu/bits/getopt_core.h:
-
-/usr/include/c++/13/string_view:
-
-/usr/include/x86_64-linux-gnu/bits/iscanonical.h:

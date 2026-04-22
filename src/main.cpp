@@ -11,6 +11,13 @@
 #include <sstream>
 #include <cstdlib>
 #include <signal.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -45,32 +52,89 @@ void signal_handler(int sig) {
 }
 
 // ===== CAMERA THREAD =====
-void camera_thread(const std::string& video_dev, const std::string& frames_dir, const std::string& frames_csv_path) {
-    cv::VideoCapture cap(video_dev, cv::CAP_V4L2);
-    if (!cap.isOpened()) {
-        int dev_index = 0;
-        try {
-            size_t pos = video_dev.find_last_not_of("0123456789");
-            dev_index = std::stoi(video_dev.substr(pos + 1));
-        } catch (...) {}
-        cap.open(dev_index, cv::CAP_V4L2);
-    }
-    if (!cap.isOpened()) {
-        std::cerr << "[Camera] Could not open " << video_dev << std::endl;
+void camera_thread(const std::string& video_dev,
+                   const std::string& frames_dir,
+                   const std::string& frames_csv_path)
+{
+    int fd = open(video_dev.c_str(), O_RDWR);
+    if (fd < 0) {
+        perror("[Camera] open");
         stop_flag = true;
         return;
     }
 
     std::cout << "[Camera] Opened " << video_dev << std::endl;
 
-    // Set 1920x1080 MJPG`
-    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1440);
-    std::cout << "[Camera] Resolution: " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
-              << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << std::endl;
+    // ===== SET FORMAT =====
+    v4l2_format fmt{};
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    fmt.fmt.pix.width = 1920;
+    fmt.fmt.pix.height = 1440;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+    fmt.fmt.pix.field = V4L2_FIELD_ANY;
 
-    // Open frames CSV
+    if (ioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
+        perror("[Camera] VIDIOC_S_FMT");
+    }
+
+    std::cout << "[Camera] Resolution: "
+              << fmt.fmt.pix.width << "x" << fmt.fmt.pix.height << std::endl;
+
+    // ===== REQUEST BUFFERS =====
+    v4l2_requestbuffers req{};
+    req.count = 4;
+    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    req.memory = V4L2_MEMORY_MMAP;
+
+    if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0) {
+        perror("[Camera] VIDIOC_REQBUFS");
+        stop_flag = true;
+        close(fd);
+        return;
+    }
+
+    std::vector<void*> buffers(req.count);
+    std::vector<size_t> lengths(req.count);
+
+    for (uint32_t i = 0; i < req.count; i++) {
+        v4l2_buffer buf{};
+        buf.type = req.type;
+        buf.memory = V4L2_MEMORY_MMAP;
+        buf.index = i;
+
+        if (ioctl(fd, VIDIOC_QUERYBUF, &buf) < 0) {
+            perror("[Camera] VIDIOC_QUERYBUF");
+            stop_flag = true;
+            close(fd);
+            return;
+        }
+
+        buffers[i] = mmap(NULL, buf.length, PROT_READ | PROT_WRITE,
+                          MAP_SHARED, fd, buf.m.offset);
+        lengths[i] = buf.length;
+
+        if (buffers[i] == MAP_FAILED) {
+            perror("[Camera] mmap");
+            stop_flag = true;
+            close(fd);
+            return;
+        }
+
+        if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+            perror("[Camera] VIDIOC_QBUF");
+        }
+    }
+
+    // ===== START STREAM =====
+    int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
+        perror("[Camera] VIDIOC_STREAMON");
+        stop_flag = true;
+        close(fd);
+        return;
+    }
+
+    // ===== CSV =====
     std::ofstream frames_csv(frames_csv_path);
     frames_csv << "frame_index,filename,recv_time_us,brightness\n";
     frames_csv.flush();
@@ -78,65 +142,111 @@ void camera_thread(const std::string& video_dev, const std::string& frames_dir, 
     cv::Mat frame;
     uint32_t read_fail_count = 0;
 
+    // ===== MAIN LOOP =====
     while (!stop_flag) {
-        bool read_ok = false;
-        try {
-            read_ok = cap.read(frame);
-        } catch (const cv::Exception& e) {
-            std::cerr << "[Camera] WARNING: cap.read() exception: " << e.what() << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            continue;
-        }
-        if (!read_ok) {
+        v4l2_buffer buf{};
+        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buf.memory = V4L2_MEMORY_MMAP;
+
+        if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
+            if (errno == EAGAIN) continue;
+
             read_fail_count++;
             if (read_fail_count % 100 == 0) {
-                std::cout << "[Camera] WARNING: cap.read() failing repeatedly" << std::endl;
+                std::cerr << "[Camera] WARNING: DQBUF failing repeatedly\n";
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
             continue;
         }
+
         read_fail_count = 0;
 
-        if (frame.empty()) continue;  // skip corrupt/empty frames
-        stream_ready = true;
+        // ===== DROP EMPTY / INVALID BUFFERS =====
+        if (buf.bytesused == 0 || buf.bytesused < 100) {
+            ioctl(fd, VIDIOC_QBUF, &buf);
+            continue;
+        }
 
-        auto recv_time = std::chrono::system_clock::now();
-        auto recv_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            recv_time.time_since_epoch()).count();
+        // ===== KERNEL TIMESTAMP =====
+        uint64_t ts_us =
+            (uint64_t)buf.timestamp.tv_sec * 1000000ULL +
+            (uint64_t)buf.timestamp.tv_usec;
+
+        // ===== MJPEG → OpenCV =====
+        std::vector<uchar> jpeg_data(
+            (uchar*)buffers[buf.index],
+            (uchar*)buffers[buf.index] + buf.bytesused
+        );
+
+        if (jpeg_data.empty()) {
+            ioctl(fd, VIDIOC_QBUF, &buf);
+            continue;
+        }
+
+        try {
+            frame = cv::imdecode(jpeg_data, cv::IMREAD_COLOR);
+        } catch (const cv::Exception& e) {
+            std::cerr << "[Camera] WARNING: imdecode failed: " << e.what() << std::endl;
+            ioctl(fd, VIDIOC_QBUF, &buf);
+            continue;
+        }
+
+        if (frame.empty()) {
+            ioctl(fd, VIDIOC_QBUF, &buf);
+            continue;
+        }
+
+        stream_ready = true;
 
         uint64_t idx = frame_count++;
 
-        // Compute brightness
+        // ===== BRIGHTNESS =====
         cv::Scalar mean_val = cv::mean(frame);
         double brightness = (mean_val[0] + mean_val[1] + mean_val[2]) / 3.0;
 
-        // Build filename
+        // ===== FILENAME =====
         std::ostringstream oss;
         oss << "frame_" << std::setfill('0') << std::setw(6) << idx << ".jpg";
         std::string basename = oss.str();
         std::string filepath = frames_dir + "/" + basename;
 
-        // Queue for saving
+        // ===== QUEUE SAVE =====
         {
             std::lock_guard<std::mutex> lock(save_queue_mtx);
             save_queue.push({filepath, frame.clone()});
             save_queue_cv.notify_one();
         }
 
-        // Log to frames CSV
-        frames_csv << idx << "," << basename << "," << recv_us << ","
+        // ===== LOG CSV =====
+        frames_csv << idx << "," << basename << "," << ts_us << ","
                    << std::fixed << std::setprecision(1) << brightness << "\n";
+
         if (idx % 10 == 0) frames_csv.flush();
 
         if (idx % 50 == 0) {
-            std::cout << "[Camera] frame " << idx << "  bright=" << std::fixed
-                      << std::setprecision(1) << brightness << std::endl;
+            std::cout << "[Camera] frame " << idx
+                      << " bright=" << brightness
+                      << " ts=" << ts_us << std::endl;
+        }
+
+        // ===== REQUEUE =====
+        if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+            perror("[Camera] VIDIOC_QBUF");
         }
     }
 
+    // ===== CLEANUP =====
+    ioctl(fd, VIDIOC_STREAMOFF, &type);
+
+    for (size_t i = 0; i < buffers.size(); i++) {
+        munmap(buffers[i], lengths[i]);
+    }
+
+    close(fd);
+
     frames_csv.flush();
     frames_csv.close();
-    cap.release();
+
     std::cout << "[Camera] Stopped. Total frames: " << frame_count << std::endl;
 }
 
@@ -225,8 +335,10 @@ void rtk_logger_thread(const std::string& rtk_port, const std::string& csv_path)
             if (parser.parse_message(parser.payload, tm2)) {
                 if (!tm2.newRisingEdge) continue;
 
-                auto arrival_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
+                // Use kernel monotonic time to match v4l2 buffer timestamps
+                struct timespec ts;
+                clock_gettime(CLOCK_MONOTONIC, &ts);
+                uint64_t arrival_us = (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000;
 
                 csv_file << tm2_count << ","
                          << arrival_us << ","
@@ -333,3 +445,4 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
