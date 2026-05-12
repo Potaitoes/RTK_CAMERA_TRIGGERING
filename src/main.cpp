@@ -68,8 +68,8 @@ void camera_thread(const std::string& video_dev,
     // ===== SET FORMAT =====
     v4l2_format fmt{};
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width = 1920;
-    fmt.fmt.pix.height = 1440;
+    fmt.fmt.pix.width = 2880;
+    fmt.fmt.pix.height = 2160;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
     fmt.fmt.pix.field = V4L2_FIELD_ANY;
 

@@ -8,7 +8,7 @@ import time
 HID_PATH = "/dev/hidraw_econ"   #HID address of the camera (stable udev symlink).
 BUFFER_LENGTH = 65
 VIDEO_DEV = "/dev/video0"
-EXPOSURE_TIME = 6  # in 100µs units (100 = 10ms)
+EXPOSURE_TIME = 167  # in 100µs units (100 = 10ms)
 
 # ===== PROTOCOL =====
 CAMERA_CONTROL = 0x81
