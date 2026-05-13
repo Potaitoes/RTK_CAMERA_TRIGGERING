@@ -347,5 +347,8 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: \
  /usr/include/opencv4/opencv2/core/ovx.hpp \
  /usr/include/opencv4/opencv2/core/cvdef.h \
  /usr/include/opencv4/opencv2/imgcodecs.hpp \
- /usr/include/opencv4/opencv2/videoio.hpp /usr/include/libserialport.h \
+ /usr/include/opencv4/opencv2/videoio.hpp \
+ /usr/include/opencv4/opencv2/imgproc.hpp \
+ /usr/include/opencv4/opencv2/imgproc/segmentation.hpp \
+ /usr/include/libserialport.h \
  /home/vitom/Documents/RTK_CAMERA_TRIGGERING/src/ubx_parser.h

@@ -18,8 +18,16 @@ add_executable(capture_session
     src/ubx_parser.cpp
 )
 
+add_executable(brightness_calculator
+    src/brightness_calculator.cpp
+)
+
 target_link_libraries(capture_session
     ${OpenCV_LIBS}
     ${LIBSERIALPORT_LIBRARIES}
     Threads::Threads
+)
+
+target_link_libraries(brightness_calculator
+    ${OpenCV_LIBS}
 )

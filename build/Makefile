@@ -129,6 +129,43 @@ capture_session/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/capture_session.dir/build.make CMakeFiles/capture_session.dir/build
 .PHONY : capture_session/fast
 
+#=============================================================================
+# Target rules for targets named brightness_calculator
+
+# Build rule for target.
+brightness_calculator: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 brightness_calculator
+.PHONY : brightness_calculator
+
+# fast build rule for target.
+brightness_calculator/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brightness_calculator.dir/build.make CMakeFiles/brightness_calculator.dir/build
+.PHONY : brightness_calculator/fast
+
+src/brightness_calculator.o: src/brightness_calculator.cpp.o
+.PHONY : src/brightness_calculator.o
+
+# target to build an object file
+src/brightness_calculator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brightness_calculator.dir/build.make CMakeFiles/brightness_calculator.dir/src/brightness_calculator.cpp.o
+.PHONY : src/brightness_calculator.cpp.o
+
+src/brightness_calculator.i: src/brightness_calculator.cpp.i
+.PHONY : src/brightness_calculator.i
+
+# target to preprocess a source file
+src/brightness_calculator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brightness_calculator.dir/build.make CMakeFiles/brightness_calculator.dir/src/brightness_calculator.cpp.i
+.PHONY : src/brightness_calculator.cpp.i
+
+src/brightness_calculator.s: src/brightness_calculator.cpp.s
+.PHONY : src/brightness_calculator.s
+
+# target to generate assembly for a file
+src/brightness_calculator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brightness_calculator.dir/build.make CMakeFiles/brightness_calculator.dir/src/brightness_calculator.cpp.s
+.PHONY : src/brightness_calculator.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -185,7 +222,11 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... brightness_calculator"
 	@echo "... capture_session"
+	@echo "... src/brightness_calculator.o"
+	@echo "... src/brightness_calculator.i"
+	@echo "... src/brightness_calculator.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

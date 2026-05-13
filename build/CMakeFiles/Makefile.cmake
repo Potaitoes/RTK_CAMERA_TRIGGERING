@@ -57,4 +57,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/capture_session.dir/DependInfo.cmake"
+  "CMakeFiles/brightness_calculator.dir/DependInfo.cmake"
   )

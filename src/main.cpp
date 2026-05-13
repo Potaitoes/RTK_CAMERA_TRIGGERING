@@ -22,6 +22,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <libserialport.h>
 
@@ -33,6 +34,12 @@ constexpr const char* VIDEO_DEV = "/dev/video0";
 constexpr const char* RTK_PORT = "/dev/ttyACM0";
 constexpr int RTK_BAUD = 115200;
 constexpr const char* OUTPUT_DIR = "./recordings";
+
+// ===== AUTO-EXPOSURE CONFIG =====
+constexpr double TARGET_BRIGHTNESS = 120.0;
+constexpr int MIN_EXPOSURE = 8;     // Adjust based on camera capabilities
+constexpr int MAX_EXPOSURE = 300;  // Adjust based on camera capabilities
+constexpr double KP = 0.5;  // Proportional gain
 
 // ===== GLOBALS =====
 std::atomic<bool> stop_flag(false);
@@ -49,6 +56,33 @@ int tm2_count = 0;
 void signal_handler(int sig) {
     std::cout << "\n[Main] Stopping..." << std::endl;
     stop_flag = true;
+}
+
+// ===== EXPOSURE CONTROL =====
+bool set_manual_exposure(int fd, int exposure_value) {
+    // Set auto_exposure to manual mode (1)
+    v4l2_control ctrl{};
+    ctrl.id = V4L2_CID_EXPOSURE_AUTO;
+    ctrl.value = V4L2_EXPOSURE_MANUAL;
+    if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) < 0) {
+        std::cerr << "[Exposure] Warning: Failed to set auto_exposure mode" << std::endl;
+    }
+
+    // Set exposure time (absolute)
+    ctrl.id = V4L2_CID_EXPOSURE_ABSOLUTE;
+    ctrl.value = exposure_value;
+    if (ioctl(fd, VIDIOC_S_CTRL, &ctrl) < 0) {
+        std::cerr << "[Exposure] Failed to set exposure to " << exposure_value << std::endl;
+        return false;
+    }
+    return true;
+}
+
+double compute_brightness(const cv::Mat& frame) {
+    if (frame.empty()) return -1.0;
+    cv::Mat gray;
+    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+    return cv::mean(gray)[0];
 }
 
 // ===== CAMERA THREAD =====
@@ -139,6 +173,12 @@ void camera_thread(const std::string& video_dev,
     frames_csv << "frame_index,filename,recv_time_us,brightness\n";
     frames_csv.flush();
 
+    // ===== EXPOSURE CONTROL =====
+    int current_exposure = 167;  // Default exposure value
+    auto last_exposure_update = std::chrono::steady_clock::now();
+    const auto exposure_update_interval = std::chrono::milliseconds(500);
+    set_manual_exposure(fd, current_exposure);
+
     cv::Mat frame;
     uint32_t read_fail_count = 0;
 
@@ -227,6 +267,28 @@ void camera_thread(const std::string& video_dev,
             std::cout << "[Camera] frame " << idx
                       << " bright=" << brightness
                       << " ts=" << ts_us << std::endl;
+        }
+
+        // ===== EXPOSURE CONTROL =====
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_exposure_update >= exposure_update_interval) {
+            double error = TARGET_BRIGHTNESS - brightness;
+            int exposure_adjustment = static_cast<int>(error * KP);
+            int new_exposure = current_exposure + exposure_adjustment;
+            
+            // Clamp exposure within valid range
+            new_exposure = std::max(MIN_EXPOSURE, std::min(MAX_EXPOSURE, new_exposure));
+            
+            // Only update if change is significant
+            if (std::abs(new_exposure - current_exposure) > 1) {
+                if (set_manual_exposure(fd, new_exposure)) {
+                    current_exposure = new_exposure;
+                    std::cout << "[Exposure] Adjusted to " << current_exposure
+                              << " (brightness=" << brightness << ", error=" << error << ")"
+                              << std::endl;
+                }
+            }
+            last_exposure_update = now;
         }
 
         // ===== REQUEUE =====

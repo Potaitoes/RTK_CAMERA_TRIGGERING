@@ -64,6 +64,7 @@ CMAKE_BINARY_DIR = /home/vitom/Documents/RTK_CAMERA_TRIGGERING/build
 
 # The main recursive "all" target.
 all: CMakeFiles/capture_session.dir/all
+all: CMakeFiles/brightness_calculator.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -72,6 +73,7 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/capture_session.dir/clean
+clean: CMakeFiles/brightness_calculator.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -81,7 +83,7 @@ clean: CMakeFiles/capture_session.dir/clean
 CMakeFiles/capture_session.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/capture_session.dir/build.make CMakeFiles/capture_session.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/capture_session.dir/build.make CMakeFiles/capture_session.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles --progress-num=1,2,3 "Built target capture_session"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles --progress-num=3,4,5 "Built target capture_session"
 .PHONY : CMakeFiles/capture_session.dir/all
 
 # Build rule for subdir invocation for target.
@@ -99,6 +101,32 @@ capture_session: CMakeFiles/capture_session.dir/rule
 CMakeFiles/capture_session.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/capture_session.dir/build.make CMakeFiles/capture_session.dir/clean
 .PHONY : CMakeFiles/capture_session.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/brightness_calculator.dir
+
+# All Build rule for target.
+CMakeFiles/brightness_calculator.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brightness_calculator.dir/build.make CMakeFiles/brightness_calculator.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brightness_calculator.dir/build.make CMakeFiles/brightness_calculator.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles --progress-num=1,2 "Built target brightness_calculator"
+.PHONY : CMakeFiles/brightness_calculator.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/brightness_calculator.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/brightness_calculator.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/vitom/Documents/RTK_CAMERA_TRIGGERING/build/CMakeFiles 0
+.PHONY : CMakeFiles/brightness_calculator.dir/rule
+
+# Convenience name for target.
+brightness_calculator: CMakeFiles/brightness_calculator.dir/rule
+.PHONY : brightness_calculator
+
+# clean rule for target.
+CMakeFiles/brightness_calculator.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brightness_calculator.dir/build.make CMakeFiles/brightness_calculator.dir/clean
+.PHONY : CMakeFiles/brightness_calculator.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.
