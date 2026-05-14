@@ -1,6 +1,9 @@
 #include <iostream>
 #include <thread>
 #include <queue>
+#include <deque>
+#include <algorithm>
+#include <cmath>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
@@ -40,6 +43,11 @@ constexpr double TARGET_BRIGHTNESS = 120.0;
 constexpr int MIN_EXPOSURE = 8;     // Adjust based on camera capabilities
 constexpr int MAX_EXPOSURE = 300;  // Adjust based on camera capabilities
 constexpr double KP = 0.5;  // Proportional gain
+constexpr double KI = 0.01; // Integral gain
+constexpr double BRIGHTNESS_FILTER_ALPHA = 0.2;
+constexpr double BRIGHTNESS_DEADBAND = 1.5;
+constexpr double MAX_INTEGRAL = 200.0;
+constexpr int MAX_EXPOSURE_STEP = 5;
 
 // ===== GLOBALS =====
 std::atomic<bool> stop_flag(false);
@@ -176,11 +184,14 @@ void camera_thread(const std::string& video_dev,
     // ===== EXPOSURE CONTROL =====
     int current_exposure = 167;  // Default exposure value
     auto last_exposure_update = std::chrono::steady_clock::now();
-    const auto exposure_update_interval = std::chrono::milliseconds(500);
+    const auto exposure_update_interval = std::chrono::milliseconds(300);
     set_manual_exposure(fd, current_exposure);
+    double integral_error = 0.0;  // PI control integral accumulator
+    double filtered_brightness = TARGET_BRIGHTNESS;
 
     cv::Mat frame;
     uint32_t read_fail_count = 0;
+    std::deque<double> brightness_buffer;  // Store last 4 frame brightness values
 
     // ===== MAIN LOOP =====
     while (!stop_flag) {
@@ -242,7 +253,21 @@ void camera_thread(const std::string& video_dev,
 
         // ===== BRIGHTNESS =====
         cv::Scalar mean_val = cv::mean(frame);
-        double brightness = (mean_val[0] + mean_val[1] + mean_val[2]) / 3.0;
+        double frame_brightness = (mean_val[0] + mean_val[1] + mean_val[2]) / 3.0;
+        
+        // Keep last 4 brightness values
+        brightness_buffer.push_back(frame_brightness);
+        if (brightness_buffer.size() > 4) {
+            brightness_buffer.pop_front();
+        }
+        
+        // Use mean of 2 darkest frames for exposure control
+        double brightness = frame_brightness;  // Default to current frame
+        if (brightness_buffer.size() >= 2) {
+            std::vector<double> sorted_bright(brightness_buffer.begin(), brightness_buffer.end());
+            std::sort(sorted_bright.begin(), sorted_bright.end());
+            brightness = (sorted_bright[0] + sorted_bright[1]) / 2.0;
+        }
 
         // ===== FILENAME =====
         std::ostringstream oss;
@@ -272,19 +297,47 @@ void camera_thread(const std::string& video_dev,
         // ===== EXPOSURE CONTROL =====
         auto now = std::chrono::steady_clock::now();
         if (now - last_exposure_update >= exposure_update_interval) {
-            double error = TARGET_BRIGHTNESS - brightness;
-            int exposure_adjustment = static_cast<int>(error * KP);
+            filtered_brightness = (1.0 - BRIGHTNESS_FILTER_ALPHA) * filtered_brightness
+                                + BRIGHTNESS_FILTER_ALPHA * brightness;
+            double control_brightness = filtered_brightness;
+            double error = TARGET_BRIGHTNESS - control_brightness;
+
+            if (std::abs(error) < BRIGHTNESS_DEADBAND) {
+                error = 0.0;
+            }
+
+            double dt = std::chrono::duration<double>(now - last_exposure_update).count();
+            integral_error += error * dt;
+            integral_error = std::clamp(integral_error, -MAX_INTEGRAL, MAX_INTEGRAL);
+
+            double p_term = KP * error;
+            double i_term = KI * integral_error;
+            double control_output = p_term + i_term;
+
+            int exposure_adjustment = static_cast<int>(std::round(control_output));
+            exposure_adjustment = std::max(-MAX_EXPOSURE_STEP, std::min(MAX_EXPOSURE_STEP, exposure_adjustment));
             int new_exposure = current_exposure + exposure_adjustment;
-            
+
             // Clamp exposure within valid range
-            new_exposure = std::max(MIN_EXPOSURE, std::min(MAX_EXPOSURE, new_exposure));
-            
+            int clamped_exposure = std::max(MIN_EXPOSURE, std::min(MAX_EXPOSURE, new_exposure));
+
+            // Anti-windup: only accumulate integral if not at limits
+            if ((clamped_exposure == new_exposure) || 
+                (new_exposure > MAX_EXPOSURE && error < 0) || 
+                (new_exposure < MIN_EXPOSURE && error > 0)) {
+                // No windup - exposure moved or error is pushing away from limit
+            } else {
+                // At limit and error is pushing towards limit - prevent windup
+                integral_error -= error * dt;
+            }
+
             // Only update if change is significant
-            if (std::abs(new_exposure - current_exposure) > 1) {
-                if (set_manual_exposure(fd, new_exposure)) {
-                    current_exposure = new_exposure;
+            if (std::abs(clamped_exposure - current_exposure) > 1) {
+                if (set_manual_exposure(fd, clamped_exposure)) {
+                    current_exposure = clamped_exposure;
                     std::cout << "[Exposure] Adjusted to " << current_exposure
-                              << " (brightness=" << brightness << ", error=" << error << ")"
+                              << " (brightness=" << brightness << ", control=" << control_brightness
+                              << ", error=" << error << ", P=" << p_term << ", I=" << i_term << ")"
                               << std::endl;
                 }
             }

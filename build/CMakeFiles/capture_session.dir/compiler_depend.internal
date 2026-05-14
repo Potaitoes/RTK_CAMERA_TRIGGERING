@@ -241,6 +241,8 @@ CMakeFiles/capture_session.dir/src/main.cpp.o
  /usr/include/opencv4/opencv2/core/version.hpp
  /usr/include/opencv4/opencv2/core/vsx_utils.hpp
  /usr/include/opencv4/opencv2/imgcodecs.hpp
+ /usr/include/opencv4/opencv2/imgproc.hpp
+ /usr/include/opencv4/opencv2/imgproc/segmentation.hpp
  /usr/include/opencv4/opencv2/opencv_modules.hpp
  /usr/include/opencv4/opencv2/videoio.hpp
  /usr/include/pthread.h
