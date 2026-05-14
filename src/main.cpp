@@ -39,15 +39,27 @@ constexpr int RTK_BAUD = 115200;
 constexpr const char* OUTPUT_DIR = "./recordings";
 
 // ===== AUTO-EXPOSURE CONFIG =====
-constexpr double TARGET_BRIGHTNESS = 120.0;
+constexpr int TARGET_PERCENTILE_VALUE = 120;
+constexpr int HISTOGRAM_PERCENTILE = 75;
 constexpr int MIN_EXPOSURE = 8;     // Adjust based on camera capabilities
 constexpr int MAX_EXPOSURE = 300;  // Adjust based on camera capabilities
-constexpr double KP = 0.5;  // Proportional gain
-constexpr double KI = 0.01; // Integral gain
-constexpr double BRIGHTNESS_FILTER_ALPHA = 0.2;
-constexpr double BRIGHTNESS_DEADBAND = 1.5;
-constexpr double MAX_INTEGRAL = 200.0;
+constexpr double EXPOSURE_GAIN_K = 0.008;  // Proportional gain for exposure adjustment
+constexpr double MAX_EXPOSURE_MULTIPLIER_PER_UPDATE = 1.20;
+constexpr double PERCENTILE_FILTER_ALPHA = 0.15;
+constexpr double DEADZONE = 2.0;
 constexpr int MAX_EXPOSURE_STEP = 5;
+constexpr int PERCENTILE_HISTORY_LENGTH = 4;
+constexpr int PERCENTILE_DARK_FRAMES = 2;
+
+constexpr bool LUMINANCE_USE_GREEN = false;
+constexpr int HISTOGRAM_BINS = 64;
+constexpr int DOWNSAMPLE_TARGET_WIDTH = 180;
+constexpr int DOWNSAMPLE_TARGET_HEIGHT = 135;
+constexpr double HISTOGRAM_BORDER_CROP_RATIO = 0.10;
+constexpr double HISTOGRAM_TOP_CROP_RATIO = 0.15;
+constexpr double HISTOGRAM_CENTER_WEIGHT_RATIO = 0.50;
+constexpr int HISTOGRAM_CENTER_WEIGHT = 2;
+constexpr int HISTOGRAM_OUTER_WEIGHT = 1;
 
 // ===== GLOBALS =====
 std::atomic<bool> stop_flag(false);
@@ -86,11 +98,63 @@ bool set_manual_exposure(int fd, int exposure_value) {
     return true;
 }
 
-double compute_brightness(const cv::Mat& frame) {
-    if (frame.empty()) return -1.0;
-    cv::Mat gray;
-    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-    return cv::mean(gray)[0];
+static inline uint8_t compute_luminance(const cv::Vec3b& pixel) {
+    if (LUMINANCE_USE_GREEN) {
+        return pixel[1];
+    }
+    return static_cast<uint8_t>((77 * pixel[2] + 150 * pixel[1] + 29 * pixel[0] + 128) >> 8);
+}
+
+double compute_histogram_percentile(const cv::Mat& frame, int percentile) {
+    if (frame.empty() || frame.channels() < 3) {
+        return -1.0;
+    }
+
+    int width = frame.cols;
+    int height = frame.rows;
+    int step_x = std::max(1, width / DOWNSAMPLE_TARGET_WIDTH);
+    int step_y = std::max(1, height / DOWNSAMPLE_TARGET_HEIGHT);
+
+    int left = static_cast<int>(width * HISTOGRAM_BORDER_CROP_RATIO);
+    int right = std::max(left + 1, width - left);
+    int top = static_cast<int>(height * HISTOGRAM_TOP_CROP_RATIO);
+    int bottom = std::max(top + 1, height - static_cast<int>(height * HISTOGRAM_BORDER_CROP_RATIO));
+
+    int center_x0 = std::max(left, static_cast<int>(width * (0.5 - HISTOGRAM_CENTER_WEIGHT_RATIO / 2.0)));
+    int center_x1 = std::min(right, static_cast<int>(width * (0.5 + HISTOGRAM_CENTER_WEIGHT_RATIO / 2.0)));
+    int center_y0 = std::max(top, static_cast<int>(height * (0.5 - HISTOGRAM_CENTER_WEIGHT_RATIO / 2.0)));
+    int center_y1 = std::min(bottom, static_cast<int>(height * (0.5 + HISTOGRAM_CENTER_WEIGHT_RATIO / 2.0)));
+
+    uint32_t hist[HISTOGRAM_BINS] = {};
+    uint32_t total_weight = 0;
+
+    for (int y = top; y < bottom; y += step_y) {
+        const cv::Vec3b* row = frame.ptr<cv::Vec3b>(y);
+        for (int x = left; x < right; x += step_x) {
+            uint8_t luminance = compute_luminance(row[x]);
+            int bin = luminance >> 2;
+            uint32_t weight = (x >= center_x0 && x < center_x1 && y >= center_y0 && y < center_y1)
+                                  ? HISTOGRAM_CENTER_WEIGHT
+                                  : HISTOGRAM_OUTER_WEIGHT;
+            hist[bin] += weight;
+            total_weight += weight;
+        }
+    }
+
+    if (total_weight == 0) {
+        return -1.0;
+    }
+
+    uint32_t threshold = (static_cast<uint64_t>(total_weight) * percentile + 99) / 100;
+    uint32_t cumulative = 0;
+    for (int bin = 0; bin < HISTOGRAM_BINS; ++bin) {
+        cumulative += hist[bin];
+        if (cumulative >= threshold) {
+            return static_cast<double>(bin * 4 + 2);
+        }
+    }
+
+    return 255.0;
 }
 
 // ===== CAMERA THREAD =====
@@ -110,7 +174,7 @@ void camera_thread(const std::string& video_dev,
     // ===== SET FORMAT =====
     v4l2_format fmt{};
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width = 2880;
+    fmt.fmt.pix.width = 3840;
     fmt.fmt.pix.height = 2160;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
     fmt.fmt.pix.field = V4L2_FIELD_ANY;
@@ -178,20 +242,19 @@ void camera_thread(const std::string& video_dev,
 
     // ===== CSV =====
     std::ofstream frames_csv(frames_csv_path);
-    frames_csv << "frame_index,filename,recv_time_us,brightness\n";
+    frames_csv << "frame_index,filename,recv_time_us,p75_luminance\n";
     frames_csv.flush();
 
     // ===== EXPOSURE CONTROL =====
     int current_exposure = 167;  // Default exposure value
     auto last_exposure_update = std::chrono::steady_clock::now();
-    const auto exposure_update_interval = std::chrono::milliseconds(300);
+    const auto exposure_update_interval = std::chrono::milliseconds(200);
     set_manual_exposure(fd, current_exposure);
-    double integral_error = 0.0;  // PI control integral accumulator
-    double filtered_brightness = TARGET_BRIGHTNESS;
+    double filtered_percentile = TARGET_PERCENTILE_VALUE;
+    std::deque<double> percentile_history;
 
     cv::Mat frame;
     uint32_t read_fail_count = 0;
-    std::deque<double> brightness_buffer;  // Store last 4 frame brightness values
 
     // ===== MAIN LOOP =====
     while (!stop_flag) {
@@ -251,22 +314,28 @@ void camera_thread(const std::string& video_dev,
 
         uint64_t idx = frame_count++;
 
-        // ===== BRIGHTNESS =====
-        cv::Scalar mean_val = cv::mean(frame);
-        double frame_brightness = (mean_val[0] + mean_val[1] + mean_val[2]) / 3.0;
-        
-        // Keep last 4 brightness values
-        brightness_buffer.push_back(frame_brightness);
-        if (brightness_buffer.size() > 4) {
-            brightness_buffer.pop_front();
+        double measured_percentile = compute_histogram_percentile(frame, HISTOGRAM_PERCENTILE);
+        if (measured_percentile < 0.0) {
+            if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+                perror("[Camera] VIDIOC_QBUF");
+            }
+            continue;
         }
-        
-        // Use mean of 2 darkest frames for exposure control
-        double brightness = frame_brightness;  // Default to current frame
-        if (brightness_buffer.size() >= 2) {
-            std::vector<double> sorted_bright(brightness_buffer.begin(), brightness_buffer.end());
-            std::sort(sorted_bright.begin(), sorted_bright.end());
-            brightness = (sorted_bright[0] + sorted_bright[1]) / 2.0;
+
+        percentile_history.push_back(measured_percentile);
+        if (percentile_history.size() > PERCENTILE_HISTORY_LENGTH) {
+            percentile_history.pop_front();
+        }
+
+        double control_percentile = measured_percentile;
+        if (percentile_history.size() >= PERCENTILE_DARK_FRAMES) {
+            std::vector<double> sorted_history(percentile_history.begin(), percentile_history.end());
+            std::sort(sorted_history.begin(), sorted_history.end());
+            control_percentile = 0.0;
+            for (int i = 0; i < PERCENTILE_DARK_FRAMES; ++i) {
+                control_percentile += sorted_history[i];
+            }
+            control_percentile /= static_cast<double>(PERCENTILE_DARK_FRAMES);
         }
 
         // ===== FILENAME =====
@@ -284,60 +353,47 @@ void camera_thread(const std::string& video_dev,
 
         // ===== LOG CSV =====
         frames_csv << idx << "," << basename << "," << ts_us << ","
-                   << std::fixed << std::setprecision(1) << brightness << "\n";
+                   << std::fixed << std::setprecision(1) << measured_percentile << "\n";
 
         if (idx % 10 == 0) frames_csv.flush();
 
         if (idx % 50 == 0) {
             std::cout << "[Camera] frame " << idx
-                      << " bright=" << brightness
+                      << " p" << HISTOGRAM_PERCENTILE << "=" << measured_percentile
                       << " ts=" << ts_us << std::endl;
         }
 
         // ===== EXPOSURE CONTROL =====
         auto now = std::chrono::steady_clock::now();
         if (now - last_exposure_update >= exposure_update_interval) {
-            filtered_brightness = (1.0 - BRIGHTNESS_FILTER_ALPHA) * filtered_brightness
-                                + BRIGHTNESS_FILTER_ALPHA * brightness;
-            double control_brightness = filtered_brightness;
-            double error = TARGET_BRIGHTNESS - control_brightness;
+            filtered_percentile = (1.0 - PERCENTILE_FILTER_ALPHA) * filtered_percentile
+                                + PERCENTILE_FILTER_ALPHA * control_percentile;
+            double error = TARGET_PERCENTILE_VALUE - filtered_percentile;
+            double multiplier = 1.0;
 
-            if (std::abs(error) < BRIGHTNESS_DEADBAND) {
-                error = 0.0;
+            if (std::abs(error) >= DEADZONE) {
+                multiplier = std::exp(EXPOSURE_GAIN_K * error);
+                multiplier = std::clamp(multiplier,
+                                        1.0 / MAX_EXPOSURE_MULTIPLIER_PER_UPDATE,
+                                        MAX_EXPOSURE_MULTIPLIER_PER_UPDATE);
             }
 
-            double dt = std::chrono::duration<double>(now - last_exposure_update).count();
-            integral_error += error * dt;
-            integral_error = std::clamp(integral_error, -MAX_INTEGRAL, MAX_INTEGRAL);
-
-            double p_term = KP * error;
-            double i_term = KI * integral_error;
-            double control_output = p_term + i_term;
-
-            int exposure_adjustment = static_cast<int>(std::round(control_output));
-            exposure_adjustment = std::max(-MAX_EXPOSURE_STEP, std::min(MAX_EXPOSURE_STEP, exposure_adjustment));
-            int new_exposure = current_exposure + exposure_adjustment;
-
-            // Clamp exposure within valid range
-            int clamped_exposure = std::max(MIN_EXPOSURE, std::min(MAX_EXPOSURE, new_exposure));
-
-            // Anti-windup: only accumulate integral if not at limits
-            if ((clamped_exposure == new_exposure) || 
-                (new_exposure > MAX_EXPOSURE && error < 0) || 
-                (new_exposure < MIN_EXPOSURE && error > 0)) {
-                // No windup - exposure moved or error is pushing away from limit
-            } else {
-                // At limit and error is pushing towards limit - prevent windup
-                integral_error -= error * dt;
+            int target_exposure = static_cast<int>(std::round(current_exposure * multiplier));
+            int delta = target_exposure - current_exposure;
+            if (std::abs(delta) > MAX_EXPOSURE_STEP) {
+                target_exposure = current_exposure + (delta > 0 ? MAX_EXPOSURE_STEP : -MAX_EXPOSURE_STEP);
             }
+            target_exposure = std::max(MIN_EXPOSURE, std::min(MAX_EXPOSURE, target_exposure));
 
-            // Only update if change is significant
-            if (std::abs(clamped_exposure - current_exposure) > 1) {
-                if (set_manual_exposure(fd, clamped_exposure)) {
-                    current_exposure = clamped_exposure;
+            if (target_exposure != current_exposure) {
+                if (set_manual_exposure(fd, target_exposure)) {
+                    current_exposure = target_exposure;
                     std::cout << "[Exposure] Adjusted to " << current_exposure
-                              << " (brightness=" << brightness << ", control=" << control_brightness
-                              << ", error=" << error << ", P=" << p_term << ", I=" << i_term << ")"
+                              << " (meas=" << measured_percentile
+                              << ", ctrl=" << control_percentile
+                              << ", target=" << TARGET_PERCENTILE_VALUE
+                              << ", error=" << error
+                              << ", mult=" << multiplier << ")"
                               << std::endl;
                 }
             }
