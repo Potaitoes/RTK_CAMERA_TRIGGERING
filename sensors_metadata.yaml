@@ -1,0 +1,63 @@
+cameraSerial: 19248809
+camera_center_x: 1920
+camera_center_y: 1080
+camera_extrinsic:
+- -0.004049182484550606
+- -0.9999846673178086
+- 0.003777466147937003
+- 0.00110548
+- -0.00533544596896296
+- -0.003755839130183125
+- -0.9999787131178046
+- -0.08341777
+- 0.9999775683171694
+- -0.004069250756611964
+- -0.005320156084244909
+- -0.06594531
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+camera_image_height: 2160
+camera_image_width: 3840
+camera_intrinsic:
+- 746.4431881549441
+- 746.4042335090637
+- 1923.6075668069214
+- 1099.3151738936713
+- -0.2682368303655206
+- 0.5788972792200868
+camera_model: double_sphere
+camera_radius: 1600
+camera_topics:
+- /camera1_synced/image_raw/compressed
+imu_topic: /imu/data
+lastUpdated: 202604221653
+lidarToIMU:
+- 1
+- 0
+- 0
+- 0.00079388
+- 0
+- 1
+- 0
+- -0.02329
+- 0
+- 0
+- 1
+- 0.0454587
+- 0
+- 0
+- 0
+- 1
+lidar_topics:
+- /lidar_points
+lidar_type: livox
+loc: indoor
+model: Parrot
+rtkToIMU:
+- -0.084
+- 0.0
+- 0.06
+rtk_noise: 0.1
+serialNumber: '000002'

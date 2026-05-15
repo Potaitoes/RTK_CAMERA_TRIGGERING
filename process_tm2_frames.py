@@ -20,7 +20,7 @@ from pathlib import Path
 GPS_UNIX_EPOCH = 315964800  # 1980-01-06 00:00:00 UTC
 GPS_WEEK_SECONDS = 604800
 NS_TO_S = 1e-9
-EXPOSURE_CENTER_OFFSET_S = 0.015  # subtract 15 ms from each camera timestamp
+EXPOSURE_CENTER_OFFSET_S = (0.0167-0.6) # subtract 35.5 ms from each camera timestamp
 
 
 def gps_tow_to_unix_seconds(wn: int, tow_ms: int, tow_sub_ms_ns: int) -> float:
@@ -202,8 +202,8 @@ def main() -> None:
     output_dir = base_dir / "output"
     
     # Delta time filters (in microseconds)
-    min_delta_us = 25000 #exposures of 25000 us or more (25 ms) are expected, so this filters out any frames that are too close together to be valid
-    max_delta_us = 36000 #exposures of 36000 us or less (36 ms) are expected, so this filters out any frames that are too far apart to be valid (e.g. dropped frames or long gaps)
+    min_delta_us = 30000 #exposures of 25000 us or more (25 ms) are expected, so this filters out any frames that are too close together to be valid
+    max_delta_us = 40000 #exposures of 36000 us or less (36 ms) are expected, so this filters out any frames that are too far apart to be valid (e.g. dropped frames or long gaps)
     max_match_diff_us = 180000 # allow matches within 180 ms of TM2 arrival time, suitable for 200ms period with frame near the beginning.
     
     # Validate required inputs

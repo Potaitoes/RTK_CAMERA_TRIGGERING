@@ -1,0 +1,46 @@
+saveFolder: result
+cloud:
+- files/part0.h5
+imu:
+- files/imus/part0.csv
+rtk: files/gps_data.csv
+groupClouds: true
+groupNum: 5
+groupedCloud: files/grouped.h5
+icpType: PointToPlane
+coarseThresh: 0.6
+coarseIter: 200
+fineThresh: 0.1
+fineIter: 100
+registerEvery: 10
+dsVoxel: 0.1
+hierarchyVoxel: 0.2
+distFilterMin: 0.8
+distFilterMax: 70
+maxPoints: 70000
+gicpKernel: Cauchy
+gicpEpsilon: 0.001
+gicpK: 0.005
+lookBackTime: 20
+distThresh: 2.0
+closeAtEnd: true
+verbosity: 0
+numScans: '5'
+dsRatio: 30
+minDistCMC: 0.8
+maxDistCMC: 60
+useMP: false
+mixedPixelsFilter: false
+mixedPixelsDualReturnMode: false
+useRTK: false
+CRS: '2451'
+georeferencePCD: false
+lidarType: hesai
+mountType: horizontal
+intensityFilter: 0
+method: fast
+solver: gtsam
+skipMethod: skipangle
+model: parrot
+loc: outdoor
+
