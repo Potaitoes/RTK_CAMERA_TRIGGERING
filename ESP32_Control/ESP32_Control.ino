@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 #define PPS_PIN 4
-#define OUT_PIN 5
+#define OUT_PIN 5 // Output pin for camera trigger and exposure control.
 
 // GNSS UART (u-blox UBX)
 #define GNSS_RX_PIN 16

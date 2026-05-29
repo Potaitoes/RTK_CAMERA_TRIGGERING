@@ -248,7 +248,7 @@ void camera_thread(const std::string& video_dev,
     // ===== EXPOSURE CONTROL =====
     int current_exposure = 167;  // Default exposure value
     auto last_exposure_update = std::chrono::steady_clock::now();
-    const auto exposure_update_interval = std::chrono::milliseconds(200);
+    const auto exposure_update_interval = std::chrono::milliseconds(100);
     set_manual_exposure(fd, current_exposure);
     double filtered_percentile = TARGET_PERCENTILE_VALUE;
     std::deque<double> percentile_history;
