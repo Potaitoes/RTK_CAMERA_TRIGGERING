@@ -11,15 +11,15 @@ VIDEO_DEV = "/dev/video0"
 EXPOSURE_TIME = 167  # in 100µs units (100 = 10ms)
 
 # ===== PROTOCOL =====
-CAMERA_CONTROL = 0x81
+CAMERA_CONTROL = 0x81 ##define CAMERA_CONTROL_24CUG 0xA8
 
 # Commands
-SET_STREAM_MODE_CU135 = 0x11
+SET_STREAM_MODE_CU135 = 0x11 ##define SET_STREAM_MADE_24CUG                0x1C
 SET_TO_DEFAULT_CU135 = 0x12
 
 # Values
 
-STREAM_TRIGGER = 0x01 # inferred from qtCam
+STREAM_TRIGGER = 0x01 # inferred from qtCam // same for 24ug camera.
 
 # Response
 SET_SUCCESS = 0x01   # inferred from qtCam
