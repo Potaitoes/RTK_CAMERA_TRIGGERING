@@ -15,10 +15,9 @@ CAMERA_CONTROL = 0x81 ##define CAMERA_CONTROL_24CUG 0xA8
 
 # Commands
 SET_STREAM_MODE_CU135 = 0x11 ##define SET_STREAM_MADE_24CUG                0x1C
-SET_TO_DEFAULT_CU135 = 0x12
+SET_TO_DEFAULT_CU135 = 0x12 ##define SET_TO_DEFAULT_24CUG                 0xFF
 
 # Values
-
 STREAM_TRIGGER = 0x01 # inferred from qtCam // same for 24ug camera.
 
 # Response
