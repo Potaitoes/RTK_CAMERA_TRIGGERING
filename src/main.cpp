@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <linux/videodev2.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -22,6 +23,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <libserialport.h>
 
@@ -29,7 +31,7 @@
 
 // ===== CONFIG =====
 constexpr int JPEG_QUALITY = 85;
-constexpr const char* VIDEO_DEV = "/dev/video0";
+constexpr const char* VIDEO_DEV = "/dev/video1";
 constexpr const char* RTK_PORT = "/dev/ttyACM0";
 constexpr int RTK_BAUD = 115200;
 constexpr const char* OUTPUT_DIR = "./recordings";
@@ -68,13 +70,20 @@ void camera_thread(const std::string& video_dev,
     // ===== SET FORMAT =====
     v4l2_format fmt{};
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width = 2880;
-    fmt.fmt.pix.height = 2160;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+    fmt.fmt.pix.width = 1280;
+    fmt.fmt.pix.height = 720;
+    // Prefer packed 4:2:2 (UYVY) which this camera supports; fall back to
+    // MJPEG or other formats if the driver chooses differently.
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
     fmt.fmt.pix.field = V4L2_FIELD_ANY;
 
     if (ioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
         perror("[Camera] VIDIOC_S_FMT");
+    }
+
+    // Query the active format from the driver so we know what to expect
+    if (ioctl(fd, VIDIOC_G_FMT, &fmt) < 0) {
+        perror("[Camera] VIDIOC_G_FMT");
     }
 
     std::cout << "[Camera] Resolution: "
@@ -86,15 +95,68 @@ void camera_thread(const std::string& video_dev,
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
 
+    bool use_read_fallback = false;
     if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0) {
         perror("[Camera] VIDIOC_REQBUFS");
-        stop_flag = true;
-        close(fd);
-        return;
+
+        // Try falling back to MJPEG if the driver rejected the preferred format
+        std::cerr << "[Camera] INFO: attempting MJPEG fallback after REQBUFS failure" << std::endl;
+        v4l2_format try_fmt = fmt;
+        try_fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+        if (ioctl(fd, VIDIOC_S_FMT, &try_fmt) == 0) {
+            // update fmt from driver
+            if (ioctl(fd, VIDIOC_G_FMT, &fmt) < 0) {
+                perror("[Camera] VIDIOC_G_FMT (after MJPEG fallback)");
+            }
+            if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0) {
+                perror("[Camera] VIDIOC_REQBUFS (MJPEG fallback)");
+                // As a last resort, enable read() fallback which works for many drivers
+                std::cerr << "[Camera] INFO: enabling read() fallback (driver rejected REQBUFS)" << std::endl;
+                use_read_fallback = true;
+            }
+        } else {
+            perror("[Camera] VIDIOC_S_FMT (MJPEG fallback)");
+            std::cerr << "[Camera] INFO: enabling read() fallback (format switch to MJPEG failed)" << std::endl;
+            use_read_fallback = true;
+        }
     }
 
-    std::vector<void*> buffers(req.count);
-    std::vector<size_t> lengths(req.count);
+    std::vector<void*> buffers;
+    std::vector<size_t> lengths;
+
+    if (!use_read_fallback) {
+        buffers.resize(req.count);
+        lengths.resize(req.count);
+
+        for (uint32_t i = 0; i < req.count; i++) {
+            v4l2_buffer buf{};
+            buf.type = req.type;
+            buf.memory = V4L2_MEMORY_MMAP;
+            buf.index = i;
+
+            if (ioctl(fd, VIDIOC_QUERYBUF, &buf) < 0) {
+                perror("[Camera] VIDIOC_QUERYBUF");
+                stop_flag = true;
+                close(fd);
+                return;
+            }
+
+            buffers[i] = mmap(NULL, buf.length, PROT_READ | PROT_WRITE,
+                              MAP_SHARED, fd, buf.m.offset);
+            lengths[i] = buf.length;
+
+            if (buffers[i] == MAP_FAILED) {
+                perror("[Camera] mmap");
+                stop_flag = true;
+                close(fd);
+                return;
+            }
+
+            if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+                perror("[Camera] VIDIOC_QBUF");
+            }
+        }
+    }
 
     for (uint32_t i = 0; i < req.count; i++) {
         v4l2_buffer buf{};
@@ -129,9 +191,29 @@ void camera_thread(const std::string& video_dev,
     int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
         perror("[Camera] VIDIOC_STREAMON");
-        stop_flag = true;
-        close(fd);
-        return;
+        if (!use_read_fallback) {
+            stop_flag = true;
+            close(fd);
+            return;
+        } else {
+            std::cerr << "[Camera] INFO: STREAMON failed but continuing using read() fallback" << std::endl;
+        }
+    }
+
+    // Prepare read() buffer when in fallback mode
+    std::vector<uint8_t> read_buf;
+    if (use_read_fallback) {
+        size_t sizeimg = fmt.fmt.pix.sizeimage;
+        if (sizeimg == 0) {
+            // ensure a conservative buffer size for common formats
+            if (fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
+                sizeimg = fmt.fmt.pix.width * fmt.fmt.pix.height; // compressed estimate
+            } else {
+                // assume packed 2 bytes per pixel as conservative default
+                sizeimg = fmt.fmt.pix.width * fmt.fmt.pix.height * 2;
+            }
+        }
+        read_buf.resize(sizeimg);
     }
 
     // ===== CSV =====
@@ -144,55 +226,181 @@ void camera_thread(const std::string& video_dev,
 
     // ===== MAIN LOOP =====
     while (!stop_flag) {
-        v4l2_buffer buf{};
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        buf.memory = V4L2_MEMORY_MMAP;
+        uint8_t* data_ptr = nullptr;
+        size_t bytesused = 0;
+        uint64_t ts_us = 0;
 
-        if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
-            if (errno == EAGAIN) continue;
-
-            read_fail_count++;
-            if (read_fail_count % 100 == 0) {
-                std::cerr << "[Camera] WARNING: DQBUF failing repeatedly\n";
+        if (use_read_fallback) {
+            // Blocking read() of a frame-sized chunk
+            ssize_t r = ::read(fd, read_buf.data(), read_buf.size());
+            if (r < 0) {
+                if (errno == EAGAIN || errno == EINTR) continue;
+                perror("[Camera] read");
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                continue;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            continue;
+            if (r == 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+
+            data_ptr = read_buf.data();
+            bytesused = (size_t)r;
+
+            timeval tv{};
+            if (gettimeofday(&tv, nullptr) == 0) {
+                ts_us = (uint64_t)tv.tv_sec * 1000000ULL + (uint64_t)tv.tv_usec;
+            } else {
+                ts_us = 0;
+            }
+        } else {
+            v4l2_buffer buf{};
+            buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            buf.memory = V4L2_MEMORY_MMAP;
+
+            if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
+                if (errno == EAGAIN) continue;
+
+                read_fail_count++;
+                if (read_fail_count % 100 == 0) {
+                    std::cerr << "[Camera] WARNING: DQBUF failing repeatedly\n";
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                continue;
+            }
+
+            read_fail_count = 0;
+
+            // ===== DROP EMPTY / INVALID BUFFERS =====
+            if (buf.bytesused == 0 || buf.bytesused < 100) {
+                ioctl(fd, VIDIOC_QBUF, &buf);
+                continue;
+            }
+
+            // ===== KERNEL TIMESTAMP =====
+            ts_us = (uint64_t)buf.timestamp.tv_sec * 1000000ULL + (uint64_t)buf.timestamp.tv_usec;
+
+            data_ptr = reinterpret_cast<uint8_t*>(buffers[buf.index]);
+            bytesused = buf.bytesused;
+
+            // We'll requeue `buf` later after processing
+            // store index for requeue
+            // use a small local var to hold the index
+            int dq_index = buf.index;
+
+            // ===== Frame → OpenCV =====
+            if (fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
+                std::vector<uchar> jpeg_data((uchar*)data_ptr, (uchar*)data_ptr + bytesused);
+                if (jpeg_data.empty()) {
+                    ioctl(fd, VIDIOC_QBUF, &buf);
+                    continue;
+                }
+
+                try {
+                    frame = cv::imdecode(jpeg_data, cv::IMREAD_COLOR);
+                } catch (const cv::Exception& e) {
+                    std::cerr << "[Camera] WARNING: imdecode failed: " << e.what() << std::endl;
+                    ioctl(fd, VIDIOC_QBUF, &buf);
+                    continue;
+                }
+
+                // requeue
+                if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+                    perror("[Camera] VIDIOC_QBUF");
+                }
+            } else if (fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY || fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
+                int w = fmt.fmt.pix.width;
+                int h = fmt.fmt.pix.height;
+                size_t expected = (size_t)w * (size_t)h * 2;
+                if (bytesused < 1 || bytesused < expected) {
+                    ioctl(fd, VIDIOC_QBUF, &buf);
+                    continue;
+                }
+
+                try {
+                    cv::Mat yuv2(h, w, CV_8UC2, data_ptr);
+                    if (fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY)
+                        cv::cvtColor(yuv2, frame, cv::COLOR_YUV2BGR_UYVY);
+                    else
+                        cv::cvtColor(yuv2, frame, cv::COLOR_YUV2BGR_YUY2);
+                } catch (const cv::Exception& e) {
+                    std::cerr << "[Camera] WARNING: packed YUV->BGR convert failed: " << e.what() << std::endl;
+                    ioctl(fd, VIDIOC_QBUF, &buf);
+                    continue;
+                }
+
+                if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+                    perror("[Camera] VIDIOC_QBUF");
+                }
+            } else {
+                int w = fmt.fmt.pix.width;
+                int h = fmt.fmt.pix.height;
+                size_t expected = (size_t)w * (size_t)h * 3 / 2;
+                if (bytesused < 1 || bytesused < expected) {
+                    ioctl(fd, VIDIOC_QBUF, &buf);
+                    continue;
+                }
+
+                try {
+                    cv::Mat yuv(h + h/2, w, CV_8UC1, data_ptr);
+                    cv::cvtColor(yuv, frame, cv::COLOR_YUV2BGR_I420);
+                } catch (const cv::Exception& e) {
+                    std::cerr << "[Camera] WARNING: YUV->BGR convert failed: " << e.what() << std::endl;
+                    ioctl(fd, VIDIOC_QBUF, &buf);
+                    continue;
+                }
+
+                if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+                    perror("[Camera] VIDIOC_QBUF");
+                }
+            }
         }
 
-        read_fail_count = 0;
+        // If we used the read() fallback, process frames here (shared code below will also handle)
+        if (use_read_fallback) {
+            if (bytesused == 0) continue;
 
-        // ===== DROP EMPTY / INVALID BUFFERS =====
-        if (buf.bytesused == 0 || buf.bytesused < 100) {
-            ioctl(fd, VIDIOC_QBUF, &buf);
-            continue;
-        }
+            if (fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG) {
+                std::vector<uchar> jpeg_data(read_buf.begin(), read_buf.begin() + bytesused);
+                try {
+                    frame = cv::imdecode(jpeg_data, cv::IMREAD_COLOR);
+                } catch (const cv::Exception& e) {
+                    std::cerr << "[Camera] WARNING: imdecode failed (read fallback): " << e.what() << std::endl;
+                    continue;
+                }
+            } else if (fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY || fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) {
+                int w = fmt.fmt.pix.width;
+                int h = fmt.fmt.pix.height;
+                size_t expected = (size_t)w * (size_t)h * 2;
+                if (bytesused < 1 || bytesused < expected) continue;
 
-        // ===== KERNEL TIMESTAMP =====
-        uint64_t ts_us =
-            (uint64_t)buf.timestamp.tv_sec * 1000000ULL +
-            (uint64_t)buf.timestamp.tv_usec;
+                try {
+                    cv::Mat yuv2(h, w, CV_8UC2, read_buf.data());
+                    if (fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY)
+                        cv::cvtColor(yuv2, frame, cv::COLOR_YUV2BGR_UYVY);
+                    else
+                        cv::cvtColor(yuv2, frame, cv::COLOR_YUV2BGR_YUY2);
+                } catch (const cv::Exception& e) {
+                    std::cerr << "[Camera] WARNING: packed YUV->BGR convert failed (read fallback): " << e.what() << std::endl;
+                    continue;
+                }
+            } else {
+                int w = fmt.fmt.pix.width;
+                int h = fmt.fmt.pix.height;
+                size_t expected = (size_t)w * (size_t)h * 3 / 2;
+                if (bytesused < 1 || bytesused < expected) continue;
 
-        // ===== MJPEG → OpenCV =====
-        std::vector<uchar> jpeg_data(
-            (uchar*)buffers[buf.index],
-            (uchar*)buffers[buf.index] + buf.bytesused
-        );
-
-        if (jpeg_data.empty()) {
-            ioctl(fd, VIDIOC_QBUF, &buf);
-            continue;
-        }
-
-        try {
-            frame = cv::imdecode(jpeg_data, cv::IMREAD_COLOR);
-        } catch (const cv::Exception& e) {
-            std::cerr << "[Camera] WARNING: imdecode failed: " << e.what() << std::endl;
-            ioctl(fd, VIDIOC_QBUF, &buf);
-            continue;
+                try {
+                    cv::Mat yuv(h + h/2, w, CV_8UC1, read_buf.data());
+                    cv::cvtColor(yuv, frame, cv::COLOR_YUV2BGR_I420);
+                } catch (const cv::Exception& e) {
+                    std::cerr << "[Camera] WARNING: YUV->BGR convert failed (read fallback): " << e.what() << std::endl;
+                    continue;
+                }
+            }
         }
 
         if (frame.empty()) {
-            ioctl(fd, VIDIOC_QBUF, &buf);
             continue;
         }
 
@@ -229,10 +437,7 @@ void camera_thread(const std::string& video_dev,
                       << " ts=" << ts_us << std::endl;
         }
 
-        // ===== REQUEUE =====
-        if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
-            perror("[Camera] VIDIOC_QBUF");
-        }
+        // (Requeue is handled inside the MMAP branch where applicable)
     }
 
     // ===== CLEANUP =====

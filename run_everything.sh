@@ -24,22 +24,22 @@ echo "[run_everything] Session folder: ${SESSION_DIR}"
 #sleep 2  # Give it a moment to ensure PTP is fully stopped
 
 # Clean up background processes on exit
-cleanup() {
-    echo "[run_everything] Stopping background processes..."
-    kill $LAUNCH_PID $BAG_PID 2>/dev/null
-    wait $LAUNCH_PID $BAG_PID 2>/dev/null
-    echo "[run_everything] Done."
-}
-trap cleanup EXIT INT TERM
+# cleanup() {
+#     echo "[run_everything] Stopping background processes..."
+#     kill $LAUNCH_PID $BAG_PID 2>/dev/null
+#     wait $LAUNCH_PID $BAG_PID 2>/dev/null
+#     echo "[run_everything] Done."
+# }
+#trap cleanup EXIT INT TERM
 
-ros2 launch motiv lidar.launch.py &
-LAUNCH_PID=$!
+# ros2 launch motiv lidar.launch.py &
+# LAUNCH_PID=$!
 
-sleep 10  # Wait for the launch to initialize
+#sleep 10  # Wait for the launch to initialize
 
-ros2 bag record /imu/data /imu/data_raw /lidar_points --max-bag-duration 180 -o "${SESSION_DIR}/bag" &
-BAG_PID=$!
+# ros2 bag record /imu/data /imu/data_raw /lidar_points --max-bag-duration 180 -o "${SESSION_DIR}/bag" &
+# BAG_PID=$!
 
-sleep 5  # Ensure the bag recording has started
+#sleep 5  # Ensure the bag recording has started
 
 ./build/capture_session --video /dev/video0 --rtk /dev/ttyACM0 --out "${SESSION_DIR}"

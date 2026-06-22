@@ -5,17 +5,17 @@ import subprocess
 import time
 
 # ===== CONFIG =====
-HID_PATH = "/dev/hidraw_econ"   #HID address of the camera (stable udev symlink).
+HID_PATH = "/dev/hidraw3"   #HID address of the camera (stable udev symlink).
 BUFFER_LENGTH = 65
-VIDEO_DEV = "/dev/video0"
+VIDEO_DEV = "/dev/video1"
 EXPOSURE_TIME = 167  # in 100µs units (100 = 10ms)
 
 # ===== PROTOCOL =====
-CAMERA_CONTROL = 0x81 ##define CAMERA_CONTROL_24CUG 0xA8
+CAMERA_CONTROL = 0xA8 ##define CAMERA_CONTROL_24CUG 0xA8
 
 # Commands
-SET_STREAM_MODE_CU135 = 0x11 ##define SET_STREAM_MADE_24CUG                0x1C
-SET_TO_DEFAULT_CU135 = 0x12 ##define SET_TO_DEFAULT_24CUG                 0xFF
+SET_STREAM_MODE_CU135 = 0x1C ##define SET_STREAM_MADE_24CUG                0x1C
+SET_TO_DEFAULT_CU135 = 0xFF ##define SET_TO_DEFAULT_24CUG                 0xFF
 
 # Values
 STREAM_TRIGGER = 0x01 # inferred from qtCam // same for 24ug camera.
@@ -27,24 +27,57 @@ SET_FAIL = 0x00
 
 # ===== CORE FUNCTION =====
 def send_cmd(cmd, value=0x00, verbose=True):
-    fd = os.open(HID_PATH, os.O_RDWR)
+    if not os.path.exists(HID_PATH):
+        print(f"❌ HID device not found: {HID_PATH}")
+        return None
+
+    try:
+        # Open non-blocking so reads don't hang indefinitely
+        fd = os.open(HID_PATH, os.O_RDWR | os.O_NONBLOCK)
+    except FileNotFoundError:
+        print(f"❌ HID device not found: {HID_PATH}")
+        return None
+    except PermissionError:
+        print(f"❌ Permission denied opening {HID_PATH}; try running as root or adjust udev rules")
+        return None
 
     out_buf = bytearray(BUFFER_LENGTH)
-    out_buf[0] = CAMERA_CONTROL     # 0x81
+    out_buf[0] = CAMERA_CONTROL
     out_buf[1] = cmd
     out_buf[2] = value
 
-    os.write(fd, out_buf)
-
     try:
-        resp = os.read(fd, BUFFER_LENGTH)
-    except BlockingIOError:
-        resp = bytes()
+        os.write(fd, out_buf)
+    except OSError as e:
+        print(f"❌ Failed to write to HID device: {e}")
+        os.close(fd)
+        return None
 
-    os.close(fd)
+    # Wait for a response with a short timeout
+    resp = bytes()
+    try:
+        import select
+
+        rlist, _, _ = select.select([fd], [], [], 1.0)
+        if rlist:
+            try:
+                resp = os.read(fd, BUFFER_LENGTH)
+            except BlockingIOError:
+                resp = bytes()
+            except OSError as e:
+                print(f"❌ Error reading HID device: {e}")
+                resp = bytes()
+    finally:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
 
     if verbose:
-        print("Response:", list(resp[:10]))
+        try:
+            print("Response:", list(resp[:10]))
+        except Exception:
+            print("Response: <unreadable>")
 
     # Basic validation
     if len(resp) >= 7:
@@ -106,8 +139,8 @@ def main():
     elif mode == 1:
         print("Setting camera to stream trigger mode")
         set_effect_sketch()
-        print("Setting manual exposure...")
-        set_exposure()
+        #print("Setting manual exposure...")
+       # set_exposure()
     else:
         print("Invalid mode: must be 0 or 1")
         sys.exit(1)

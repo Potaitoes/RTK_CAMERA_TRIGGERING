@@ -240,6 +240,8 @@ CMakeFiles/capture_session.dir/src/main.cpp.o: /home/vitom/Documents/RTK_CAMERA_
   /usr/include/opencv4/opencv2/core/version.hpp \
   /usr/include/opencv4/opencv2/core/vsx_utils.hpp \
   /usr/include/opencv4/opencv2/imgcodecs.hpp \
+  /usr/include/opencv4/opencv2/imgproc.hpp \
+  /usr/include/opencv4/opencv2/imgproc/segmentation.hpp \
   /usr/include/opencv4/opencv2/opencv_modules.hpp \
   /usr/include/opencv4/opencv2/videoio.hpp \
   /usr/include/pthread.h \
@@ -729,6 +731,12 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/x86_64-linux-gnu/asm/ioctls.h:
 
+/usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
+
+/usr/include/x86_64-linux-gnu/asm/ioctl.h:
+
+/usr/include/x86_64-linux-gnu/asm/errno.h:
+
 /usr/include/x86_64-linux-gnu/bits/select2.h:
 
 /usr/include/c++/13/cmath:
@@ -825,6 +833,8 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/erase_if.h:
 
+/usr/include/opencv4/opencv2/imgproc.hpp:
+
 /usr/include/c++/13/bits/stringfwd.h:
 
 /usr/include/c++/13/bits/this_thread_sleep.h:
@@ -877,8 +887,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 
 /usr/include/c++/13/bits/atomic_lockfree_defines.h:
 
-/usr/include/x86_64-linux-gnu/asm/errno.h:
-
 /usr/include/c++/13/bits/streambuf.tcc:
 
 /usr/include/c++/13/bits/specfun.h:
@@ -890,10 +898,6 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/libintl.h:
 
 /usr/include/c++/13/atomic:
-
-/usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
-
-/usr/include/x86_64-linux-gnu/asm/ioctl.h:
 
 /usr/include/c++/13/bits/basic_ios.tcc:
 
@@ -1336,6 +1340,8 @@ CMakeFiles/capture_session.dir/src/ubx_parser.cpp.o: /home/vitom/Documents/RTK_C
 /usr/include/c++/13/bits/deque.tcc:
 
 /usr/include/opencv4/opencv2/core/vsx_utils.hpp:
+
+/usr/include/opencv4/opencv2/imgproc/segmentation.hpp:
 
 /usr/include/opencv4/opencv2/videoio.hpp:
 

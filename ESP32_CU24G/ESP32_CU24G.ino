@@ -10,12 +10,9 @@
 #define NMEA_TX_PIN 17 // Use 200 ohms resistor on this pin.
 #define NMEA_BAUD 9600
 
-#define FRAME_PERIOD_US 200000UL         // 100 ms => 10 Hz
-#define EXPOSURE_TIME_US 35500UL          // 35.5 ms exposure time
-#define TRIGGER_START_OFFSET_US 10000UL  // trigger 10 ms after period boundary
+#define FRAME_PERIOD_US 200000UL         // 200 ms => 5 Hz
+#define TRIGGER_START_OFFSET_US 0UL      // trigger at period boundary
 #define TRIGGER_PULSE_WIDTH_US 1000UL    // 1 ms trigger pulse (HIGH)
-#define EXPOSURE_END_OFFSET_US (TRIGGER_START_OFFSET_US + EXPOSURE_TIME_US)   // exposure ends at the end of the exposure time
-#define CLOSE_EXTEND_US 5000UL           // closing pulse extends 5 ms past next period
 
 volatile uint32_t syncTimeUs = 0;
 volatile bool synced = false;
@@ -290,16 +287,12 @@ void loop() {
   uint32_t elapsedUs = micros() - startUs;
   uint32_t phaseUs = elapsedUs % FRAME_PERIOD_US;
 
-  // Trigger pulse: 10 ms → 11 ms into each period
+  // Start pulse: a short 1 ms HIGH pulse at the period boundary
   bool startPulse = (phaseUs >= TRIGGER_START_OFFSET_US) &&
                     (phaseUs < (TRIGGER_START_OFFSET_US + TRIGGER_PULSE_WIDTH_US));
 
-  // Closing pulse: from EXPOSURE_END_OFFSET to 5 ms past next period boundary
-  // Wraps around: [EXPOSURE_END_OFFSET .. period end] ∪ [0 .. CLOSE_EXTEND]
-  bool closingPulse = (phaseUs >= EXPOSURE_END_OFFSET_US) ||
-                      (phaseUs < CLOSE_EXTEND_US);
-
-  bool shouldBeHigh = startPulse || closingPulse;
+  // Simplified behaviour: only emit the start pulse once per period
+  bool shouldBeHigh = startPulse;
 
   if (shouldBeHigh != outputHigh) {
     digitalWrite(OUT_PIN, shouldBeHigh ? HIGH : LOW);
